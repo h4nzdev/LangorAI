@@ -121,7 +121,7 @@ export default function Dashboard() {
             </div>
             <div className="flex items-end justify-between px-2 h-20 gap-2">
               {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, i) => (
-                <div key={day} className="flex flex-col items-center gap-2 flex-1">
+                <div key={i} className="flex flex-col items-center gap-2 flex-1">
                   <div 
                     className={cn(
                       "w-full rounded-t-sm transition-all",
