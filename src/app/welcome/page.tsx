@@ -16,7 +16,9 @@ import {
   AlertCircle,
   Smile,
   Target,
-  BarChart3
+  BarChart3,
+  Loader2,
+  Activity
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -86,6 +88,7 @@ export default function WelcomeTour() {
   const [userLevel, setUserLevel] = useState('Intermediate');
   const [userGoal, setUserGoal] = useState('Career Growth');
   const [isError, setIsError] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(false);
   
   const progress = ((currentStep + 1) / TOUR_STEPS.length) * 100;
   const isLastStep = currentStep === TOUR_STEPS.length - 1;
@@ -98,7 +101,6 @@ export default function WelcomeTour() {
   }, [router]);
 
   const nextStep = () => {
-    // Validate name step
     if (TOUR_STEPS[currentStep].id === 'onboarding') {
       if (!userName.trim()) {
         setIsError(true);
@@ -122,6 +124,9 @@ export default function WelcomeTour() {
     const trimmedName = userName.trim();
     if (!trimmedName) return;
     
+    // Set initializing state to show splash screen
+    setIsInitializing(true);
+    
     localStorage.setItem('USER_NAME', trimmedName);
     localStorage.setItem('USER_AVATAR', userAvatar);
     localStorage.setItem('USER_LEVEL', userLevel);
@@ -131,12 +136,49 @@ export default function WelcomeTour() {
     if (!localStorage.getItem('TOTAL_MINUTES')) localStorage.setItem('TOTAL_MINUTES', '0');
     if (!localStorage.getItem('STREAK_COUNT')) localStorage.setItem('STREAK_COUNT', '0');
     
-    router.push('/dashboard');
+    // Hold splash screen for a moment then redirect
+    setTimeout(() => {
+      router.push('/dashboard');
+    }, 3000);
   };
 
   const skipTour = () => {
-    setCurrentStep(4); // Go to name step
+    setCurrentStep(4);
   };
+
+  if (isInitializing) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-500">
+        <div className="relative mb-12">
+          <div className="absolute -inset-12 bg-primary/20 rounded-full blur-3xl animate-pulse" />
+          <div className="relative flex items-center justify-center h-32 w-32 rounded-full border border-primary/30 bg-card/50 shadow-2xl">
+             <Globe className="h-16 w-16 text-primary animate-bounce" />
+          </div>
+        </div>
+        
+        <div className="space-y-6 max-w-xs">
+          <div className="space-y-2">
+            <h2 className="text-xl font-black uppercase tracking-[0.3em] text-foreground">Langor-4 Core</h2>
+            <div className="flex items-center justify-center gap-2">
+              <Activity className="h-3 w-3 text-accent animate-pulse" />
+              <span className="text-[10px] font-black uppercase tracking-widest text-accent">Initializing Neural Interface</span>
+            </div>
+          </div>
+          
+          <div className="space-y-1 text-[10px] font-mono text-muted-foreground uppercase text-left bg-muted/30 p-4 rounded-xl border border-border">
+             <p className="flex justify-between"><span>Uplink Established</span> <CheckCircle2 className="h-3 w-3 text-emerald-500" /></p>
+             <p className="flex justify-between"><span>User Profile Synced</span> <CheckCircle2 className="h-3 w-3 text-emerald-500" /></p>
+             <p className="flex justify-between"><span>Neural Weights Loaded</span> <CheckCircle2 className="h-3 w-3 text-emerald-500" /></p>
+             <p className="flex justify-between items-center text-primary"><span>Allocating Resources...</span> <Loader2 className="h-2 w-2 animate-spin" /></p>
+          </div>
+
+          <p className="text-[10px] text-muted-foreground italic font-medium">
+            Preparing your personalized workspace, {userName}...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col font-body selection:bg-primary/30 transition-colors duration-300">

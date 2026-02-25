@@ -73,7 +73,7 @@ export default function Dashboard() {
     const streak = parseInt(localStorage.getItem('STREAK_COUNT') || '0');
     const sessions = parseInt(localStorage.getItem('SESSIONS_COUNT') || '0');
     
-    // Confidence grows by 5% per session, capped at 100%
+    // Confidence starts at 0 for new users
     const calculatedConfidence = Math.min(sessions * 5, 100);
 
     setStats({
@@ -84,16 +84,13 @@ export default function Dashboard() {
 
     // Enhanced recommendation engine (matching goal and level)
     try {
-      // 1. Try to find exact goal and level matches
       let filtered = ALL_ACTIVITIES.filter(a => a.goal === savedGoal && a.level === savedLevel);
       
-      // 2. If not enough, find goal matches at any level
       if (filtered.length < 4) {
         const goalMatches = ALL_ACTIVITIES.filter(a => a.goal === savedGoal && !filtered.find(f => f.id === a.id));
         filtered = [...filtered, ...goalMatches];
       }
 
-      // 3. If still not enough, add fillers from other goals
       if (filtered.length < 4) {
         const fillers = ALL_ACTIVITIES.filter(a => !filtered.find(f => f.id === a.id)).slice(0, 4 - filtered.length);
         filtered = [...filtered, ...fillers];
@@ -150,7 +147,7 @@ export default function Dashboard() {
           <div className="max-w-4xl mx-auto px-6 space-y-8">
             {/* Welcome Section */}
             <div className="space-y-1">
-              <h1 className="text-3xl font-bold">Welcome back, {userName}! {userAvatar}</h1>
+              <h1 className="text-3xl font-bold">Welcome back, {userName}!</h1>
               <p className="text-muted-foreground text-sm font-medium">Goal: <span className="text-primary">{userGoal}</span> • Level: <span className="text-primary">{userLevel}</span></p>
             </div>
 
