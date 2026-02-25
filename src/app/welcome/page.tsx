@@ -79,7 +79,7 @@ export default function WelcomeTour() {
   return (
     <div className="min-h-screen bg-[#0B121F] text-white flex flex-col font-body selection:bg-primary/30">
       {/* Header */}
-      <header className="px-6 h-20 flex items-center justify-between max-w-xl mx-auto w-full">
+      <header className="px-6 h-20 flex items-center justify-between max-w-xl mx-auto w-full shrink-0">
         <div className="flex items-center gap-2">
           <Globe className="h-5 w-5 text-primary" />
           <span className="text-sm font-black tracking-tighter uppercase">Langor AI</span>
@@ -89,32 +89,33 @@ export default function WelcomeTour() {
         </Button>
       </header>
 
-      <main className="flex-1 flex flex-col items-center justify-center p-6 pb-24">
-        <div className="max-w-md w-full space-y-12">
-          
-          {/* Step Content */}
-          <div className="relative">
+      <main className="flex-1 flex flex-col items-center justify-center p-6 pb-32">
+        <div className="max-w-md w-full relative">
+          {/* Step Content Container */}
+          <div className="min-h-[400px] flex flex-col items-center">
             {TOUR_STEPS.map((step, index) => (
               <div 
                 key={step.id}
                 className={cn(
-                  "transition-all duration-500 absolute inset-0 flex flex-col items-center text-center space-y-8",
-                  currentStep === index ? "opacity-100 translate-y-0 relative z-10" : "opacity-0 translate-y-4 pointer-events-none"
+                  "transition-all duration-500 flex flex-col items-center text-center space-y-6 w-full",
+                  currentStep === index 
+                    ? "opacity-100 translate-y-0 relative z-10" 
+                    : "opacity-0 translate-y-8 absolute inset-0 pointer-events-none"
                 )}
               >
                 <div className={cn(
-                  "p-8 rounded-[3rem] bg-gradient-to-b relative group overflow-hidden",
+                  "p-8 rounded-[3rem] bg-gradient-to-b relative group overflow-hidden mb-2",
                   step.color
                 )}>
                   <div className="absolute inset-0 bg-white/5 opacity-50" />
-                  <div className="relative z-10 animate-in zoom-in-75 duration-500">
+                  <div className="relative z-10">
                     {step.icon}
                   </div>
                 </div>
                 
-                <div className="space-y-4">
+                <div className="space-y-3 px-4">
                   <h1 className="text-3xl font-black tracking-tight">{step.title}</h1>
-                  <p className="text-muted-foreground text-lg font-medium leading-relaxed">
+                  <p className="text-muted-foreground text-base md:text-lg font-medium leading-relaxed">
                     {step.description}
                   </p>
                 </div>
@@ -125,7 +126,7 @@ export default function WelcomeTour() {
                       placeholder="Enter your name..." 
                       value={userName}
                       onChange={(e) => setUserName(e.target.value)}
-                      className="bg-[#1A2333] border-white/10 h-14 rounded-2xl text-center text-lg focus:ring-primary focus:border-primary"
+                      className="bg-[#1A2333] border-white/10 h-14 rounded-2xl text-center text-lg focus:ring-primary focus:border-primary shadow-xl"
                       onKeyDown={(e) => e.key === 'Enter' && nextStep()}
                       autoFocus
                     />
@@ -134,13 +135,12 @@ export default function WelcomeTour() {
               </div>
             ))}
           </div>
-
         </div>
       </main>
 
       {/* Footer Controls */}
-      <footer className="fixed bottom-0 left-0 right-0 p-8 bg-gradient-to-t from-[#0B121F] via-[#0B121F] to-transparent">
-        <div className="max-w-md mx-auto space-y-8">
+      <footer className="fixed bottom-0 left-0 right-0 p-8 bg-gradient-to-t from-[#0B121F] via-[#0B121F] to-transparent z-50">
+        <div className="max-w-md mx-auto space-y-6">
           {/* Progress Indicator */}
           <div className="flex items-center gap-4">
             <Progress value={progress} className="h-1 bg-white/5" />
