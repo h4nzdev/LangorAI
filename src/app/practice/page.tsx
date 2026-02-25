@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState } from 'react';
@@ -20,7 +19,7 @@ import { cn } from '@/lib/utils';
 
 export default function PracticeSession() {
   const [isMuted, setIsMuted] = useState(false);
-  const aiAvatar = PlaceHolderImages.find(img => img.id === 'lumina-ai')?.imageUrl;
+  const aiAvatar = PlaceHolderImages.find(img => img.id === 'langor-ai')?.imageUrl;
 
   return (
     <div className="min-h-screen bg-[#0B121F] text-white flex flex-col font-body selection:bg-primary/30">
@@ -46,14 +45,14 @@ export default function PracticeSession() {
         <div className="relative group">
           <div className="absolute -inset-1 bg-gradient-to-r from-primary to-blue-400 rounded-full opacity-25 blur transition duration-1000 group-hover:duration-200" />
           <Avatar className="h-28 w-28 border-4 border-[#1A2333] shadow-2xl relative">
-            <AvatarImage src={aiAvatar} alt="Lumina AI" className="object-cover" />
+            <AvatarImage src={aiAvatar} alt="Langor AI" className="object-cover" />
             <AvatarFallback>AI</AvatarFallback>
           </Avatar>
           <div className="absolute bottom-1 right-2 h-5 w-5 bg-emerald-500 border-4 border-[#0B121F] rounded-full" />
         </div>
 
         <div className="text-center space-y-2">
-          <h2 className="text-2xl font-bold tracking-tight">Lumina AI</h2>
+          <h2 className="text-2xl font-bold tracking-tight">Langor AI</h2>
           <p className="text-[#1D7AFC] text-xs font-black tracking-[0.2em] uppercase animate-pulse">Listening...</p>
         </div>
 
