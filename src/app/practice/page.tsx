@@ -41,6 +41,7 @@ export default function PracticeSession() {
   const [isMuted, setIsMuted] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
   const [transcript, setTranscript] = useState("Click the mic to start speaking...");
   const [feedback, setFeedback] = useState<PracticeOutput['feedback'] | null>(null);
@@ -89,9 +90,13 @@ export default function PracticeSession() {
   };
 
   const handleUserSpeech = async (text: string) => {
+    // Disable mic immediately to prevent multiple triggers
     setIsThinking(true);
     setErrorStatus('none');
     
+    // 3 Second delay before AI starts "thinking" and replying
+    await new Promise(resolve => setTimeout(resolve, 3000));
+
     const savedApiKey = localStorage.getItem('GEMINI_API_KEY') || undefined;
     const currentHistory = [...history, { role: 'user' as const, text }];
 
@@ -124,6 +129,11 @@ export default function PracticeSession() {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
+      
+      utterance.onstart = () => setIsSpeaking(true);
+      utterance.onend = () => setIsSpeaking(false);
+      utterance.onerror = () => setIsSpeaking(false);
+
       utterance.rate = 1;
       utterance.pitch = 1;
       window.speechSynthesis.speak(utterance);
@@ -131,16 +141,13 @@ export default function PracticeSession() {
   };
 
   const updateProgressStats = () => {
-    // Increment session count
     const sessions = parseInt(localStorage.getItem('SESSIONS_COUNT') || '0');
     localStorage.setItem('SESSIONS_COUNT', (sessions + 1).toString());
 
-    // Calculate duration in minutes (minimum 1)
     const durationMinutes = Math.max(1, Math.floor((Date.now() - startTime) / 60000));
     const totalMinutes = parseInt(localStorage.getItem('TOTAL_MINUTES') || '0');
     localStorage.setItem('TOTAL_MINUTES', (totalMinutes + durationMinutes).toString());
 
-    // Update Streak
     const lastDate = localStorage.getItem('LAST_SESSION_DATE');
     const today = new Date().toDateString();
     let streak = parseInt(localStorage.getItem('STREAK_COUNT') || '0');
@@ -152,7 +159,7 @@ export default function PracticeSession() {
       if (lastDate === yesterday.toDateString()) {
         streak += 1;
       } else {
-        streak = 1; // Reset or start streak
+        streak = 1;
       }
       localStorage.setItem('STREAK_COUNT', streak.toString());
       localStorage.setItem('LAST_SESSION_DATE', today);
@@ -174,9 +181,7 @@ export default function PracticeSession() {
         apiKey: savedApiKey
       });
       
-      // Persist the progress data
       updateProgressStats();
-      
       localStorage.setItem('LAST_SESSION_ANALYSIS', JSON.stringify(analysis));
       router.push('/practice/analysis');
     } catch (error) {
@@ -186,6 +191,8 @@ export default function PracticeSession() {
       setIsEnding(false);
     }
   };
+
+  const isMicDisabled = isThinking || isEnding || isSpeaking;
 
   return (
     <div className="min-h-screen bg-[#0B121F] text-white flex flex-col font-body selection:bg-primary/30">
@@ -225,7 +232,7 @@ export default function PracticeSession() {
         <div className="relative group">
           <div className={cn(
             "absolute -inset-1 bg-gradient-to-r from-primary to-blue-400 rounded-full opacity-25 blur transition duration-1000",
-            (isListening || isThinking) && "opacity-60 blur-md animate-pulse"
+            (isListening || isThinking || isSpeaking) && "opacity-60 blur-md animate-pulse"
           )} />
           <Avatar className="h-28 w-28 border-4 border-[#1A2333] shadow-2xl relative bg-[#1A2333]">
             <AvatarFallback className="bg-[#1A2333]">
@@ -234,7 +241,7 @@ export default function PracticeSession() {
           </Avatar>
           <div className={cn(
             "absolute bottom-1 right-2 h-5 w-5 bg-emerald-500 border-4 border-[#0B121F] rounded-full",
-            isThinking && "bg-blue-400 animate-bounce"
+            (isThinking || isSpeaking) && "bg-blue-400 animate-bounce"
           )} />
         </div>
 
@@ -244,6 +251,8 @@ export default function PracticeSession() {
             <p className="text-[#1D7AFC] text-xs font-black tracking-[0.2em] uppercase animate-pulse">Listening...</p>
           ) : isThinking ? (
             <p className="text-primary text-xs font-black tracking-[0.2em] uppercase">Thinking...</p>
+          ) : isSpeaking ? (
+            <p className="text-emerald-400 text-xs font-black tracking-[0.2em] uppercase">Speaking...</p>
           ) : (
             <p className="text-muted-foreground text-xs font-black tracking-[0.2em] uppercase">Ready</p>
           )}
@@ -260,15 +269,17 @@ export default function PracticeSession() {
           <Button 
             size="icon" 
             onClick={toggleListening}
-            disabled={isThinking || isEnding}
+            disabled={isMicDisabled}
             className={cn(
               "h-24 w-24 rounded-full transition-all duration-300 shadow-2xl z-10",
               isListening ? "bg-red-500 hover:bg-red-600 scale-110" : "bg-[#1D7AFC] hover:bg-[#1D7AFC]/90",
-              (isThinking || isEnding) && "opacity-50 cursor-not-allowed"
+              isMicDisabled && "opacity-50 cursor-not-allowed grayscale"
             )}
           >
             {isThinking || isEnding ? (
               <Loader2 className="h-10 w-10 text-white animate-spin" />
+            ) : isSpeaking ? (
+              <Bot className="h-10 w-10 text-white animate-pulse" />
             ) : isListening ? (
               <MicOff className="h-10 w-10 text-white fill-current" />
             ) : (
@@ -322,7 +333,7 @@ export default function PracticeSession() {
         <Button 
           variant="destructive" 
           onClick={handleEndSession}
-          disabled={isEnding || isThinking}
+          disabled={isEnding || isThinking || isSpeaking}
           className="h-14 rounded-2xl flex flex-col gap-1 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 text-red-500 group"
         >
           {isEnding ? (
