@@ -47,7 +47,7 @@ export default function PracticeSession() {
   const [feedback, setFeedback] = useState<PracticeOutput['feedback'] | null>(null);
   const [aiResponseText, setAiResponseText] = useState("Hi! I'm Langor AI. What hobbies do you enjoy?");
   const [history, setHistory] = useState<{role: 'user' | 'model', text: string}[]>([]);
-  const [errorStatus, setErrorStatus] = useState<'none' | 'generic' | 'api-key'>('none');
+  const [errorStatus, setErrorStatus] = useState<'none' | 'generic' | 'api-key' | 'quota'>('none');
   const [startTime] = useState(Date.now());
   
   const recognitionRef = useRef<SpeechRecognition | null>(null);
@@ -122,6 +122,7 @@ export default function PracticeSession() {
     setIsThinking(true);
     setErrorStatus('none');
     
+    // 3 second conversational delay as requested
     await new Promise(resolve => setTimeout(resolve, 3000));
 
     const savedApiKey = localStorage.getItem('GEMINI_API_KEY') || undefined;
@@ -141,11 +142,16 @@ export default function PracticeSession() {
       speakText(result.aiResponse);
     } catch (error: any) {
       console.error("AI Error:", error);
-      if (error.message?.includes('API_KEY') || error.message?.includes('401') || error.message?.includes('key')) {
+      const msg = error.message?.toLowerCase() || "";
+      
+      if (msg.includes('api_key') || msg.includes('401') || msg.includes('key')) {
         setErrorStatus('api-key');
+      } else if (msg.includes('quota') || msg.includes('exhausted') || msg.includes('429')) {
+        setErrorStatus('quota');
       } else {
         setErrorStatus('generic');
       }
+      
       setTranscript("Sorry, I had trouble thinking. Try again?");
       setIsThinking(false);
     }
@@ -230,9 +236,14 @@ export default function PracticeSession() {
       updateProgressStats();
       localStorage.setItem('LAST_SESSION_ANALYSIS', JSON.stringify(analysis));
       router.push('/practice/analysis');
-    } catch (error) {
+    } catch (error: any) {
       console.error("Analysis Error:", error);
-      router.push('/dashboard');
+      const msg = error.message?.toLowerCase() || "";
+      if (msg.includes('quota') || msg.includes('429')) {
+        setErrorStatus('quota');
+      } else {
+        router.push('/dashboard');
+      }
     } finally {
       setIsEnding(false);
     }
@@ -259,13 +270,20 @@ export default function PracticeSession() {
         </Button>
       </header>
 
-      {errorStatus === 'api-key' && (
+      {/* API/Quota Errors */}
+      {(errorStatus === 'api-key' || errorStatus === 'quota') && (
         <div className="px-6 max-w-xl mx-auto w-full pt-4 animate-in fade-in slide-in-from-top-4">
           <Alert variant="destructive" className="bg-red-500/10 border-red-500/20 text-red-400">
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle className="font-bold">Gemini API Key Missing</AlertTitle>
+            <AlertTitle className="font-bold">
+              {errorStatus === 'quota' ? 'API Quota Exhausted' : 'Gemini API Key Missing'}
+            </AlertTitle>
             <AlertDescription className="text-xs opacity-90 space-y-2">
-              <p>AI conversations require an API key. Please add it to your settings or project configuration.</p>
+              <p>
+                {errorStatus === 'quota' 
+                  ? "The shared AI quota has been reached. Please add your own free Gemini API key in settings to continue practicing."
+                  : "AI conversations require an API key. Please add it to your settings to enable voice-tutor features."}
+              </p>
               <Button size="sm" variant="outline" asChild className="bg-red-500/20 border-red-500/30 hover:bg-red-500/40 text-white h-7 text-[10px]">
                 <Link href="/settings">Go to Settings</Link>
               </Button>
