@@ -1,7 +1,8 @@
+
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import Link from 'next/link';
+import Link from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -51,6 +52,12 @@ export default function PracticeSession() {
   const [startTime] = useState(Date.now());
   
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const isMutedRef = useRef(isMuted);
+  const isEndingRef = useRef(isEnding);
+
+  // Keep refs in sync for callbacks
+  useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
+  useEffect(() => { isEndingRef.current = isEnding; }, [isEnding]);
 
   useEffect(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -70,31 +77,56 @@ export default function PracticeSession() {
         setIsListening(false);
       };
 
-      recognition.onerror = () => {
+      recognition.onerror = (event: any) => {
         setIsListening(false);
-        setTranscript("Error: Try again.");
+        // Don't show error if it's just a "no-speech" timeout during auto-loop
+        if (event.error !== 'no-speech') {
+          setTranscript("Error: Try again.");
+        } else {
+          // If no speech was detected, and we aren't muted/thinking, restart listening for a better experience
+          if (!isMutedRef.current && !isThinking && !isSpeaking && !isEndingRef.current) {
+            setTimeout(() => {
+              startListeningSafely();
+            }, 1000);
+          }
+        }
       };
 
       recognitionRef.current = recognition;
     }
+
+    return () => {
+      if (recognitionRef.current) recognitionRef.current.stop();
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    };
   }, []);
+
+  const startListeningSafely = () => {
+    if (recognitionRef.current && !isListening && !isThinking && !isSpeaking && !isEndingRef.current) {
+      try {
+        recognitionRef.current.start();
+        setIsListening(true);
+      } catch (e) {
+        console.error("Speech recognition start failed:", e);
+      }
+    }
+  };
 
   const toggleListening = () => {
     if (isListening) {
       recognitionRef.current?.stop();
+      setIsListening(false);
     } else {
-      setIsListening(true);
+      startListeningSafely();
       setTranscript("Listening...");
-      recognitionRef.current?.start();
     }
   };
 
   const handleUserSpeech = async (text: string) => {
-    // Disable mic immediately to prevent multiple triggers
     setIsThinking(true);
     setErrorStatus('none');
     
-    // 3 Second delay before AI starts "thinking" and replying
+    // 3 Second natural delay requested for "conversation feel"
     await new Promise(resolve => setTimeout(resolve, 3000));
 
     const savedApiKey = localStorage.getItem('GEMINI_API_KEY') || undefined;
@@ -120,7 +152,6 @@ export default function PracticeSession() {
         setErrorStatus('generic');
       }
       setTranscript("Sorry, I had trouble thinking. Try again?");
-    } finally {
       setIsThinking(false);
     }
   };
@@ -130,13 +161,31 @@ export default function PracticeSession() {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
       
-      utterance.onstart = () => setIsSpeaking(true);
-      utterance.onend = () => setIsSpeaking(false);
-      utterance.onerror = () => setIsSpeaking(false);
+      utterance.onstart = () => {
+        setIsSpeaking(true);
+        setIsThinking(false); // Done thinking once we start speaking
+      };
+
+      utterance.onend = () => {
+        setIsSpeaking(false);
+        // AUTOMATIC LOOP: Start listening again automatically after AI finishes its turn
+        if (!isMutedRef.current && !isEndingRef.current) {
+          setTimeout(() => {
+            startListeningSafely();
+          }, 600); // Slight delay for natural flow
+        }
+      };
+
+      utterance.onerror = () => {
+        setIsSpeaking(false);
+        setIsThinking(false);
+      };
 
       utterance.rate = 1;
       utterance.pitch = 1;
       window.speechSynthesis.speak(utterance);
+    } else {
+      setIsThinking(false);
     }
   };
 
@@ -173,6 +222,9 @@ export default function PracticeSession() {
     }
 
     setIsEnding(true);
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    if (recognitionRef.current) recognitionRef.current.stop();
+
     const savedApiKey = localStorage.getItem('GEMINI_API_KEY') || undefined;
 
     try {
@@ -324,7 +376,14 @@ export default function PracticeSession() {
         <ControlBtn 
           icon={isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />} 
           label={isMuted ? "UNMUTE" : "MUTE"} 
-          onClick={() => setIsMuted(!isMuted)} 
+          onClick={() => {
+            const newMuted = !isMuted;
+            setIsMuted(newMuted);
+            if (newMuted && isListening) {
+              recognitionRef.current?.stop();
+              setIsListening(false);
+            }
+          }} 
         />
         <ControlBtn 
           icon={<FileText className="h-5 w-5" />} 
@@ -333,7 +392,7 @@ export default function PracticeSession() {
         <Button 
           variant="destructive" 
           onClick={handleEndSession}
-          disabled={isEnding || isThinking || isSpeaking}
+          disabled={isEnding}
           className="h-14 rounded-2xl flex flex-col gap-1 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 text-red-500 group"
         >
           {isEnding ? (
