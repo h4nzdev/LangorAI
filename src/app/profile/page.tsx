@@ -31,10 +31,22 @@ export default function ProfilePage() {
   const [language, setLanguage] = useState('English');
   const [level, setLevel] = useState('Intermediate');
   const [isSaved, setIsSaved] = useState(false);
+  const [userStats, setUserStats] = useState({
+    sessions: '0',
+    minutes: '0',
+    streak: '0'
+  });
 
   useEffect(() => {
     const savedName = localStorage.getItem('USER_NAME');
     if (savedName) setUserName(savedName);
+
+    // Load actual stats
+    setUserStats({
+      sessions: localStorage.getItem('SESSIONS_COUNT') || '0',
+      minutes: localStorage.getItem('TOTAL_MINUTES') || '0',
+      streak: localStorage.getItem('STREAK_COUNT') || '0'
+    });
   }, []);
 
   const handleSave = () => {
@@ -47,14 +59,16 @@ export default function ProfilePage() {
     setTimeout(() => setIsSaved(false), 3000);
   };
 
-  const stats = [
-    { label: 'Sessions', value: '24', icon: <Zap className="h-4 w-4 text-yellow-400" /> },
-    { label: 'Minutes', value: '480', icon: <Clock className="h-4 w-4 text-blue-400" /> },
-    { label: 'Corrections', value: '112', icon: <Target className="h-4 w-4 text-emerald-400" /> },
+  const statsList = [
+    { label: 'Sessions', value: userStats.sessions, icon: <Zap className="h-4 w-4 text-yellow-400" /> },
+    { label: 'Minutes', value: userStats.minutes, icon: <Clock className="h-4 w-4 text-blue-400" /> },
+    { label: 'Day Streak', value: userStats.streak, icon: <Flame className="h-4 w-4 text-orange-400" /> },
   ];
 
   const languages = ['English', 'Spanish', 'French', 'German', 'Japanese', 'Korean'];
   const levels = ['Beginner', 'Elementary', 'Intermediate', 'Advanced', 'Fluent'];
+
+  const streakProgress = Math.min((parseInt(userStats.streak) / 7) * 100, 100);
 
   return (
     <div className="min-h-screen bg-[#0B121F] text-white flex flex-col md:flex-row font-body">
@@ -69,7 +83,7 @@ export default function ProfilePage() {
             </Link>
           </Button>
           <h1 className="text-sm font-bold tracking-tight uppercase">User Profile</h1>
-          <div className="w-10 md:hidden" /> {/* Spacer */}
+          <div className="w-10 md:hidden" /> 
         </header>
 
         <main className="flex-1 max-w-xl mx-auto w-full px-6 space-y-8 pb-32 md:pb-12">
@@ -88,20 +102,20 @@ export default function ProfilePage() {
             </div>
             <div className="text-center">
               <h2 className="text-2xl font-bold">{userName || 'User'}</h2>
-              <p className="text-xs text-muted-foreground uppercase tracking-widest font-bold">Master Student</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-widest font-bold">Language Enthusiast</p>
             </div>
           </div>
 
           {/* Stats Grid */}
           <div className="grid grid-cols-3 gap-4">
-            {stats.map((stat) => (
+            {statsList.map((stat) => (
               <Card key={stat.label} className="bg-[#1A2333] border-none text-white overflow-hidden shadow-lg">
                 <CardContent className="p-4 flex flex-col items-center gap-1">
                   <div className="p-2 bg-white/5 rounded-xl mb-1">
                     {stat.icon}
                   </div>
                   <span className="text-lg font-black">{stat.value}</span>
-                  <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">{stat.label}</span>
+                  <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider text-center">{stat.label}</span>
                 </CardContent>
               </Card>
             ))}
@@ -111,22 +125,29 @@ export default function ProfilePage() {
           <section className="space-y-4">
             <div className="flex items-center gap-2 text-primary font-bold">
               <Flame className="h-5 w-5" />
-              <h3>Daily Streak Goal</h3>
+              <h3>Weekly Goal Progress</h3>
             </div>
             <Card className="bg-[#1A2333] border-none text-white shadow-xl">
               <CardContent className="p-6 space-y-4">
                 <div className="flex justify-between items-end">
                   <div className="space-y-1">
-                    <span className="text-3xl font-black">5/7</span>
-                    <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">Days this week</p>
+                    <span className="text-3xl font-black">{userStats.streak}/7</span>
+                    <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">Days practiced</p>
                   </div>
-                  <Badge className="bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border-none font-bold">
-                    On Track
+                  <Badge className={cn(
+                    "border-none font-bold",
+                    parseInt(userStats.streak) > 0 
+                      ? "bg-emerald-500/20 text-emerald-400" 
+                      : "bg-orange-500/20 text-orange-400"
+                  )}>
+                    {parseInt(userStats.streak) > 0 ? "On Track" : "Start Today"}
                   </Badge>
                 </div>
-                <Progress value={71} className="h-2 bg-white/5" />
+                <Progress value={streakProgress} className="h-2 bg-white/5" />
                 <p className="text-[11px] text-muted-foreground italic">
-                  You're just 2 days away from your weekly goal! Keep it up.
+                  {parseInt(userStats.streak) >= 7 
+                    ? "Weekly goal achieved! Outstanding work."
+                    : `You're ${7 - parseInt(userStats.streak)} days away from your weekly goal!`}
                 </p>
               </CardContent>
             </Card>

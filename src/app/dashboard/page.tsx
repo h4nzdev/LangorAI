@@ -11,7 +11,9 @@ import {
   Bell, 
   Mic, 
   BarChart3, 
-  User
+  User,
+  Flame,
+  Zap
 } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { cn } from '@/lib/utils';
@@ -19,12 +21,28 @@ import { Navigation } from '@/components/navigation';
 
 export default function Dashboard() {
   const [userName, setUserName] = useState('Hanz');
+  const [stats, setStats] = useState({
+    streak: 0,
+    sessions: 0,
+    confidence: 65
+  });
 
   useEffect(() => {
     const savedName = localStorage.getItem('USER_NAME');
-    if (savedName) {
-      setUserName(savedName);
-    }
+    if (savedName) setUserName(savedName);
+
+    // Load progress from localStorage
+    const streak = parseInt(localStorage.getItem('STREAK_COUNT') || '0');
+    const sessions = parseInt(localStorage.getItem('SESSIONS_COUNT') || '0');
+    
+    // Simple confidence logic: base + 2% per session, capped at 98%
+    const calculatedConfidence = Math.min(65 + (sessions * 2), 98);
+
+    setStats({
+      streak,
+      sessions,
+      confidence: calculatedConfidence
+    });
   }, []);
 
   const recommendations = [
@@ -69,7 +87,7 @@ export default function Dashboard() {
             </Avatar>
           </Link>
           <span className="text-xl font-bold tracking-tight md:hidden">Langor AI</span>
-          <div className="hidden md:block w-10" /> {/* Spacer for desktop header layout consistency */}
+          <div className="hidden md:block w-10" /> 
           <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 rounded-xl ml-auto">
             <Bell className="h-6 w-6" />
           </Button>
@@ -80,33 +98,70 @@ export default function Dashboard() {
             {/* Welcome Section */}
             <div className="space-y-1">
               <h1 className="text-3xl font-bold">Welcome back, {userName}!</h1>
-              <p className="text-muted-foreground text-sm">Ready to boost your speaking confidence?</p>
+              <p className="text-muted-foreground text-sm font-medium">Ready to boost your speaking confidence?</p>
             </div>
 
-            {/* Confidence Level Card */}
-            <Card className="bg-[#1A2333] border-none text-white shadow-xl">
-              <CardContent className="p-6 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="bg-primary/20 p-2 rounded-lg">
-                      <BarChart3 className="h-5 w-5 text-primary" />
+            {/* Stats Overview */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Confidence Level Card */}
+              <Card className="bg-[#1A2333] border-none text-white shadow-xl">
+                <CardContent className="p-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="bg-primary/20 p-2 rounded-lg">
+                        <BarChart3 className="h-5 w-5 text-primary" />
+                      </div>
+                      <span className="font-bold text-sm">Confidence Level</span>
                     </div>
-                    <span className="font-semibold">Confidence Level</span>
+                    <span className="text-2xl font-black text-primary">{stats.confidence}%</span>
                   </div>
-                  <span className="text-2xl font-bold text-primary">75%</span>
-                </div>
-                <Progress value={75} className="h-2.5 bg-white/5" />
-                <div className="flex items-center justify-between text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
-                  <span>Advanced Intermediate</span>
-                  <span className="text-primary">+5% this week</span>
-                </div>
-              </CardContent>
-            </Card>
+                  <Progress value={stats.confidence} className="h-2.5 bg-white/5" />
+                  <div className="flex items-center justify-between text-[10px] font-black tracking-wider text-muted-foreground uppercase">
+                    <span>Advanced Intermediate</span>
+                    <span className="text-primary">Goal: 95%</span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Streak & Sessions Card */}
+              <Card className="bg-[#1A2333] border-none text-white shadow-xl">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-around h-full">
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="bg-orange-500/20 p-3 rounded-2xl relative">
+                        <Flame className="h-6 w-6 text-orange-500 fill-current" />
+                        {stats.streak > 0 && (
+                          <div className="absolute -top-1 -right-1 bg-orange-500 text-[10px] font-black h-5 w-5 rounded-full flex items-center justify-center border-2 border-[#1A2333]">
+                            !
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-center">
+                        <p className="text-2xl font-black">{stats.streak}</p>
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Day Streak</p>
+                      </div>
+                    </div>
+                    
+                    <div className="w-px h-12 bg-white/5" />
+
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="bg-primary/20 p-3 rounded-2xl">
+                        <Zap className="h-6 w-6 text-primary fill-current" />
+                      </div>
+                      <div className="text-center">
+                        <p className="text-2xl font-black">{stats.sessions}</p>
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Sessions</p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
 
             {/* Start AI Session CTA */}
-            <Button asChild className="w-full h-16 rounded-2xl bg-[#1D7AFC] hover:bg-[#1D7AFC]/90 text-white text-lg font-bold gap-3 shadow-lg shadow-blue-500/20">
+            <Button asChild className="w-full h-16 rounded-2xl bg-[#1D7AFC] hover:bg-[#1D7AFC]/90 text-white text-lg font-bold gap-3 shadow-lg shadow-blue-500/20 group">
               <Link href="/practice">
-                <div className="bg-white/20 p-1.5 rounded-full">
+                <div className="bg-white/20 p-1.5 rounded-full group-hover:scale-110 transition-transform">
                   <Mic className="h-6 w-6 fill-current" />
                 </div>
                 Start AI Session
@@ -116,29 +171,34 @@ export default function Dashboard() {
             {/* Daily Progress */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold">Daily Progress</h2>
-                <Button variant="link" className="text-primary text-xs font-bold p-0">Weekly View</Button>
+                <h2 className="text-xl font-bold">Weekly Activity</h2>
+                <Button variant="link" className="text-primary text-xs font-bold p-0">Detailed Insights</Button>
               </div>
               <div className="flex items-end justify-between px-2 h-20 gap-2">
-                {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, i) => (
-                  <div key={`${day}-${i}`} className="flex flex-col items-center gap-2 flex-1">
-                    <div 
-                      className={cn(
-                        "w-full rounded-t-sm transition-all",
-                        i < 5 ? "bg-primary/40 h-8" : "bg-primary h-12 shadow-[0_0_15px_rgba(29,122,252,0.3)]",
-                        i === 4 && "h-10"
-                      )} 
-                    />
-                    <span className="text-[10px] font-bold text-muted-foreground">{day}</span>
-                  </div>
-                ))}
+                {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, i) => {
+                  // Mock active days based on streak for visual effect
+                  const isActive = (i === 6) || (stats.streak > 1 && i === 5);
+                  return (
+                    <div key={`${day}-${i}`} className="flex flex-col items-center gap-2 flex-1">
+                      <div 
+                        className={cn(
+                          "w-full rounded-t-lg transition-all duration-500",
+                          isActive 
+                            ? "bg-primary h-12 shadow-[0_0_15px_rgba(29,122,252,0.4)]" 
+                            : "bg-white/5 h-6 hover:bg-white/10"
+                        )} 
+                      />
+                      <span className="text-[10px] font-bold text-muted-foreground">{day}</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
             {/* Recommended for You */}
             <div className="space-y-4 pb-4">
               <h2 className="text-xl font-bold">Recommended for You</h2>
-              <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 {recommendations.map((item) => (
                   <Link key={item.id} href="/practice" className="block">
                     <Card className="bg-[#1A2333] border-none overflow-hidden hover:ring-2 ring-primary/50 transition-all cursor-pointer shadow-lg group">

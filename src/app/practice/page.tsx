@@ -47,6 +47,7 @@ export default function PracticeSession() {
   const [aiResponseText, setAiResponseText] = useState("Hi! I'm Langor AI. What hobbies do you enjoy?");
   const [history, setHistory] = useState<{role: 'user' | 'model', text: string}[]>([]);
   const [errorStatus, setErrorStatus] = useState<'none' | 'generic' | 'api-key'>('none');
+  const [startTime] = useState(Date.now());
   
   const recognitionRef = useRef<SpeechRecognition | null>(null);
 
@@ -129,6 +130,35 @@ export default function PracticeSession() {
     }
   };
 
+  const updateProgressStats = () => {
+    // Increment session count
+    const sessions = parseInt(localStorage.getItem('SESSIONS_COUNT') || '0');
+    localStorage.setItem('SESSIONS_COUNT', (sessions + 1).toString());
+
+    // Calculate duration in minutes (minimum 1)
+    const durationMinutes = Math.max(1, Math.floor((Date.now() - startTime) / 60000));
+    const totalMinutes = parseInt(localStorage.getItem('TOTAL_MINUTES') || '0');
+    localStorage.setItem('TOTAL_MINUTES', (totalMinutes + durationMinutes).toString());
+
+    // Update Streak
+    const lastDate = localStorage.getItem('LAST_SESSION_DATE');
+    const today = new Date().toDateString();
+    let streak = parseInt(localStorage.getItem('STREAK_COUNT') || '0');
+
+    if (lastDate !== today) {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      
+      if (lastDate === yesterday.toDateString()) {
+        streak += 1;
+      } else {
+        streak = 1; // Reset or start streak
+      }
+      localStorage.setItem('STREAK_COUNT', streak.toString());
+      localStorage.setItem('LAST_SESSION_DATE', today);
+    }
+  };
+
   const handleEndSession = async () => {
     if (history.length === 0) {
       router.push('/dashboard');
@@ -143,6 +173,9 @@ export default function PracticeSession() {
         history,
         apiKey: savedApiKey
       });
+      
+      // Persist the progress data
+      updateProgressStats();
       
       localStorage.setItem('LAST_SESSION_ANALYSIS', JSON.stringify(analysis));
       router.push('/practice/analysis');
