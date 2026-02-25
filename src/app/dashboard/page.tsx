@@ -12,15 +12,39 @@ import {
   Mic, 
   BarChart3, 
   Flame,
-  Zap
+  Zap,
+  LayoutGrid
 } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { cn } from '@/lib/utils';
 import { Navigation } from '@/components/navigation';
 
+interface Activity {
+  id: string;
+  title: string;
+  meta: string;
+  goal: string;
+  imageId: string;
+}
+
+const ALL_ACTIVITIES: Activity[] = [
+  { id: 'job-interview', title: 'Job Interview Prep', meta: '15 mins • 40 pts', goal: 'Career Growth', imageId: 'job-interview' },
+  { id: 'presentation', title: 'Executive Pitch', meta: '12 mins • 35 pts', goal: 'Career Growth', imageId: 'presentation' },
+  { id: 'small-talk', title: 'Small Talk Mastery', meta: '20 mins • 50 pts', goal: 'Socializing', imageId: 'small-talk' },
+  { id: 'group-chat', title: 'Social Mixer Demo', meta: '10 mins • 20 pts', goal: 'Socializing', imageId: 'small-talk' },
+  { id: 'grammar-books', title: 'Grammar Refinement', meta: '10 mins • 25 pts', goal: 'Self-Improvement', imageId: 'grammar-books' },
+  { id: 'ai-tutor-session', title: 'Daily Fluency Check', meta: '5 mins • 15 pts', goal: 'Self-Improvement', imageId: 'ai-tutor' },
+  { id: 'travel-airport', title: 'Airport Navigation', meta: '15 mins • 30 pts', goal: 'Travel', imageId: 'small-talk' },
+  { id: 'travel-hotel', title: 'Hotel Check-in', meta: '10 mins • 20 pts', goal: 'Travel', imageId: 'hero-learning' },
+  { id: 'ielts-prep', title: 'IELTS Speaking Task', meta: '20 mins • 60 pts', goal: 'Exam Prep', imageId: 'grammar-books' },
+  { id: 'toefl-prep', title: 'TOEFL Academic Pitch', meta: '18 mins • 55 pts', goal: 'Exam Prep', imageId: 'presentation' },
+];
+
 export default function Dashboard() {
   const [userName, setUserName] = useState('Hanz');
   const [userAvatar, setUserAvatar] = useState('👤');
+  const [userGoal, setUserGoal] = useState('Career Growth');
+  const [recommendations, setRecommendations] = useState<Activity[]>([]);
   const [stats, setStats] = useState({
     streak: 0,
     sessions: 0,
@@ -28,18 +52,21 @@ export default function Dashboard() {
   });
 
   useEffect(() => {
+    // Basic user info
     const savedName = localStorage.getItem('USER_NAME');
     if (savedName) setUserName(savedName);
 
     const savedAvatar = localStorage.getItem('USER_AVATAR');
     if (savedAvatar) setUserAvatar(savedAvatar);
 
-    // Load progress from localStorage
+    const savedGoal = localStorage.getItem('USER_GOAL') || 'Career Growth';
+    setUserGoal(savedGoal);
+
+    // Progress stats
     const streak = parseInt(localStorage.getItem('STREAK_COUNT') || '0');
     const sessions = parseInt(localStorage.getItem('SESSIONS_COUNT') || '0');
     
-    // Simple confidence logic: starts at 0 as requested.
-    // Grows by 5% per session, capped at 100%
+    // Confidence grows by 5% per session, capped at 100%
     const calculatedConfidence = Math.min(sessions * 5, 100);
 
     setStats({
@@ -47,6 +74,22 @@ export default function Dashboard() {
       sessions,
       confidence: calculatedConfidence
     });
+
+    // Simple matching recommendation engine
+    try {
+      let filtered = ALL_ACTIVITIES.filter(a => a.goal === savedGoal);
+      
+      // If we don't have enough specific goals, add some top-rated general ones
+      if (filtered.length < 4) {
+        const fillers = ALL_ACTIVITIES.filter(a => a.goal !== savedGoal).slice(0, 4 - filtered.length);
+        filtered = [...filtered, ...fillers];
+      }
+      
+      setRecommendations(filtered.slice(0, 4));
+    } catch (e) {
+      console.error("Failed to generate recommendations:", e);
+      setRecommendations(ALL_ACTIVITIES.slice(0, 4));
+    }
   }, []);
 
   const getLevelLabel = (confidence: number) => {
@@ -56,33 +99,6 @@ export default function Dashboard() {
     if (confidence < 90) return "Advanced";
     return "Fluent";
   };
-
-  const recommendations = [
-    {
-      id: 'job-interview',
-      title: 'Job Interview Prep',
-      meta: '15 mins • 40 points',
-      image: PlaceHolderImages.find(img => img.id === 'job-interview')?.imageUrl
-    },
-    {
-      id: 'grammar-books',
-      title: 'Grammar Refinement',
-      meta: '10 mins • 25 points',
-      image: PlaceHolderImages.find(img => img.id === 'grammar-books')?.imageUrl
-    },
-    {
-      id: 'small-talk',
-      title: 'Small Talk Mastery',
-      meta: '20 mins • 50 points',
-      image: PlaceHolderImages.find(img => img.id === 'small-talk')?.imageUrl
-    },
-    {
-      id: 'presentation',
-      title: 'Executive Pitch',
-      meta: '12 mins • 35 points',
-      image: PlaceHolderImages.find(img => img.id === 'presentation')?.imageUrl
-    },
-  ];
 
   return (
     <div className="min-h-screen bg-[#0B121F] text-white flex flex-col md:flex-row font-body">
@@ -121,7 +137,7 @@ export default function Dashboard() {
             {/* Welcome Section */}
             <div className="space-y-1">
               <h1 className="text-3xl font-bold">Welcome back, {userName}! {userAvatar}</h1>
-              <p className="text-muted-foreground text-sm font-medium">Ready to boost your speaking confidence?</p>
+              <p className="text-muted-foreground text-sm font-medium">Your goal: <span className="text-primary">{userGoal}</span></p>
             </div>
 
             {/* Stats Overview */}
@@ -187,7 +203,7 @@ export default function Dashboard() {
                 <div className="bg-white/20 p-1.5 rounded-full group-hover:scale-110 transition-transform">
                   <Mic className="h-6 w-6 fill-current" />
                 </div>
-                Start AI Session
+                Start Free Conversation
               </Link>
             </Button>
 
@@ -219,29 +235,42 @@ export default function Dashboard() {
 
             {/* Recommended for You */}
             <div className="space-y-4 pb-4">
-              <h2 className="text-xl font-bold">Recommended for You</h2>
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold">Recommended for You</h2>
+                <div className="bg-primary/10 px-3 py-1 rounded-full flex items-center gap-2">
+                  <LayoutGrid className="h-3 w-3 text-primary" />
+                  <span className="text-[10px] font-black uppercase text-primary tracking-wider">{userGoal} Focused</span>
+                </div>
+              </div>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                {recommendations.map((item) => (
-                  <Link key={item.id} href="/practice" className="block">
-                    <Card className="bg-[#1A2333] border-none overflow-hidden hover:ring-2 ring-primary/50 transition-all cursor-pointer shadow-lg group">
-                      <div className="relative aspect-video w-full overflow-hidden">
-                        {item.image && (
-                          <Image 
-                            src={item.image} 
-                            alt={item.title} 
-                            fill 
-                            className="object-cover group-hover:scale-105 transition-transform duration-300"
-                          />
-                        )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-[#1A2333] to-transparent opacity-60" />
-                      </div>
-                      <CardContent className="p-3 space-y-1">
-                        <h3 className="font-bold text-sm leading-tight text-white">{item.title}</h3>
-                        <p className="text-[10px] text-muted-foreground">{item.meta}</p>
-                      </CardContent>
-                    </Card>
-                  </Link>
-                ))}
+                {recommendations.length > 0 ? recommendations.map((item) => {
+                  const img = PlaceHolderImages.find(p => p.id === item.imageId);
+                  return (
+                    <Link key={item.id} href="/practice" className="block">
+                      <Card className="bg-[#1A2333] border-none overflow-hidden hover:ring-2 ring-primary/50 transition-all cursor-pointer shadow-lg group h-full">
+                        <div className="relative aspect-video w-full overflow-hidden">
+                          {img && (
+                            <Image 
+                              src={img.imageUrl} 
+                              alt={item.title} 
+                              fill 
+                              className="object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                          )}
+                          <div className="absolute inset-0 bg-gradient-to-t from-[#1A2333] to-transparent opacity-60" />
+                        </div>
+                        <CardContent className="p-3 space-y-1">
+                          <h3 className="font-bold text-sm leading-tight text-white">{item.title}</h3>
+                          <p className="text-[10px] text-muted-foreground">{item.meta}</p>
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  );
+                }) : (
+                  <div className="col-span-full py-8 text-center bg-[#1A2333] rounded-3xl border border-dashed border-white/10">
+                    <p className="text-muted-foreground text-sm italic">Loading your personalized roadmap...</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
