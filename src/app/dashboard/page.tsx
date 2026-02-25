@@ -11,7 +11,6 @@ import {
   Bell, 
   Mic, 
   BarChart3, 
-  User,
   Flame,
   Zap
 } from 'lucide-react';
@@ -21,6 +20,7 @@ import { Navigation } from '@/components/navigation';
 
 export default function Dashboard() {
   const [userName, setUserName] = useState('Hanz');
+  const [userAvatar, setUserAvatar] = useState('👤');
   const [stats, setStats] = useState({
     streak: 0,
     sessions: 0,
@@ -30,6 +30,9 @@ export default function Dashboard() {
   useEffect(() => {
     const savedName = localStorage.getItem('USER_NAME');
     if (savedName) setUserName(savedName);
+
+    const savedAvatar = localStorage.getItem('USER_AVATAR');
+    if (savedAvatar) setUserAvatar(savedAvatar);
 
     // Load progress from localStorage
     const streak = parseInt(localStorage.getItem('STREAK_COUNT') || '0');
@@ -81,14 +84,25 @@ export default function Dashboard() {
         <header className="flex items-center justify-between px-6 py-4 max-w-4xl mx-auto w-full shrink-0">
           <Link href="/profile" className="md:hidden">
             <Avatar className="h-10 w-10 border-2 border-primary/20 bg-[#1A2333] hover:border-primary/50 transition-colors">
-              <AvatarFallback className="bg-[#1A2333]">
-                <User className="h-5 w-5 text-muted-foreground" />
+              <AvatarFallback className="bg-[#1A2333] text-xl">
+                {userAvatar}
               </AvatarFallback>
             </Avatar>
           </Link>
           <span className="text-xl font-bold tracking-tight md:hidden">Langor AI</span>
-          <div className="hidden md:block w-10" /> 
-          <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 rounded-xl ml-auto">
+          <div className="hidden md:flex items-center gap-3 ml-auto">
+            <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 rounded-xl">
+              <Bell className="h-6 w-6" />
+            </Button>
+            <Link href="/profile">
+              <Avatar className="h-10 w-10 border-2 border-primary/20 bg-[#1A2333] hover:border-primary/50 transition-colors">
+                <AvatarFallback className="bg-[#1A2333] text-xl">
+                  {userAvatar}
+                </AvatarFallback>
+              </Avatar>
+            </Link>
+          </div>
+          <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 rounded-xl md:hidden">
             <Bell className="h-6 w-6" />
           </Button>
         </header>
@@ -97,7 +111,7 @@ export default function Dashboard() {
           <div className="max-w-4xl mx-auto px-6 space-y-8">
             {/* Welcome Section */}
             <div className="space-y-1">
-              <h1 className="text-3xl font-bold">Welcome back, {userName}!</h1>
+              <h1 className="text-3xl font-bold">Welcome back, {userName}! {userAvatar}</h1>
               <p className="text-muted-foreground text-sm font-medium">Ready to boost your speaking confidence?</p>
             </div>
 
@@ -176,7 +190,6 @@ export default function Dashboard() {
               </div>
               <div className="flex items-end justify-between px-2 h-20 gap-2">
                 {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, i) => {
-                  // Mock active days based on streak for visual effect
                   const isActive = (i === 6) || (stats.streak > 1 && i === 5);
                   return (
                     <div key={`${day}-${i}`} className="flex flex-col items-center gap-2 flex-1">

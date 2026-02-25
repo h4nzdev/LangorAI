@@ -10,7 +10,6 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { 
   ChevronLeft, 
-  User, 
   Target, 
   Flame, 
   Trophy, 
@@ -19,15 +18,19 @@ import {
   Globe,
   LogOut,
   Save,
-  CheckCircle2
+  CheckCircle2,
+  Smile
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Navigation } from '@/components/navigation';
 
+const AVATARS = ['👤', '🧑‍🚀', '🧛', '🧙', '🦒', '🦊', '🦉', '🎨', '🎭', '🎮', '🎸', '🚀'];
+
 export default function ProfilePage() {
   const { toast } = useToast();
   const [userName, setUserName] = useState('');
+  const [userAvatar, setUserAvatar] = useState('👤');
   const [language, setLanguage] = useState('English');
   const [level, setLevel] = useState('Intermediate');
   const [isSaved, setIsSaved] = useState(false);
@@ -41,6 +44,9 @@ export default function ProfilePage() {
     const savedName = localStorage.getItem('USER_NAME');
     if (savedName) setUserName(savedName);
 
+    const savedAvatar = localStorage.getItem('USER_AVATAR');
+    if (savedAvatar) setUserAvatar(savedAvatar);
+
     // Load actual stats
     setUserStats({
       sessions: localStorage.getItem('SESSIONS_COUNT') || '0',
@@ -51,6 +57,7 @@ export default function ProfilePage() {
 
   const handleSave = () => {
     localStorage.setItem('USER_NAME', userName);
+    localStorage.setItem('USER_AVATAR', userAvatar);
     setIsSaved(true);
     toast({
       title: "Profile Updated",
@@ -92,8 +99,8 @@ export default function ProfilePage() {
             <div className="relative group">
               <div className="absolute -inset-1 bg-gradient-to-r from-primary to-blue-400 rounded-full opacity-20 blur" />
               <Avatar className="h-24 w-24 border-4 border-[#1A2333] bg-[#1A2333] relative">
-                <AvatarFallback>
-                  <User className="h-10 w-10 text-muted-foreground" />
+                <AvatarFallback className="text-4xl">
+                  {userAvatar}
                 </AvatarFallback>
               </Avatar>
               <div className="absolute bottom-0 right-0 bg-primary p-1.5 rounded-full border-2 border-[#0B121F]">
@@ -156,7 +163,7 @@ export default function ProfilePage() {
           {/* Personal Details & Settings */}
           <section className="space-y-4">
             <div className="flex items-center gap-2 text-primary font-bold">
-              <Globe className="h-5 w-5" />
+              <Smile className="h-5 w-5" />
               <h3>Personal Preferences</h3>
             </div>
             <Card className="bg-[#1A2333] border-none text-white shadow-xl">
@@ -172,6 +179,29 @@ export default function ProfilePage() {
                     className="bg-[#0B121F] border-white/10 h-11 focus:ring-primary"
                     placeholder="Hanz"
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Choose Avatar</label>
+                  <div className="grid grid-cols-6 gap-2 pt-1">
+                    {AVATARS.map((emoji) => (
+                      <button
+                        key={emoji}
+                        onClick={() => {
+                          setUserAvatar(emoji);
+                          if (isSaved) setIsSaved(false);
+                        }}
+                        className={cn(
+                          "h-10 w-10 flex items-center justify-center text-xl rounded-xl transition-all border border-white/5",
+                          userAvatar === emoji 
+                            ? "bg-primary border-primary shadow-lg shadow-primary/20" 
+                            : "bg-[#0B121F] hover:bg-[#1A2333]"
+                        )}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="space-y-2">

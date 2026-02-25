@@ -3,17 +3,21 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, MessageSquare, BarChart3, Settings, Globe, User } from 'lucide-react';
+import { Home, MessageSquare, BarChart3, Settings, Globe } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 export function Navigation() {
   const pathname = usePathname();
   const [userName, setUserName] = useState('Hanz');
+  const [userAvatar, setUserAvatar] = useState('👤');
 
   useEffect(() => {
     const savedName = localStorage.getItem('USER_NAME');
     if (savedName) setUserName(savedName);
+    
+    const savedAvatar = localStorage.getItem('USER_AVATAR');
+    if (savedAvatar) setUserAvatar(savedAvatar);
   }, []);
 
   const navItems = [
@@ -61,8 +65,8 @@ export function Navigation() {
           <Link href="/profile" className="block">
             <div className="bg-[#1A2333] rounded-[2rem] p-4 flex items-center gap-3 border border-white/5 hover:border-primary/50 transition-colors">
               <Avatar className="h-10 w-10 border-2 border-primary/20 bg-[#0B121F]">
-                <AvatarFallback>
-                  <User className="h-5 w-5 text-muted-foreground" />
+                <AvatarFallback className="text-xl">
+                  {userAvatar}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 overflow-hidden">
