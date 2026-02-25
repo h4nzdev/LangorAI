@@ -31,7 +31,7 @@ const TOUR_STEPS = [
     title: 'Welcome to Langor AI',
     description: 'The world\'s most natural way to master a new language through real-time voice conversation.',
     icon: <Globe className="h-12 w-12 text-primary" />,
-    color: 'from-blue-500/20 to-transparent'
+    color: 'from-primary/20 to-transparent'
   },
   {
     id: 'voice',
@@ -44,14 +44,14 @@ const TOUR_STEPS = [
     id: 'feedback',
     title: 'Live Corrections',
     description: 'Get instant feedback on your grammar and pronunciation while you speak, without interrupting your flow.',
-    icon: <Sparkles className="h-12 w-12 text-emerald-400" />,
+    icon: <Sparkles className="h-12 w-12 text-emerald-500" />,
     color: 'from-emerald-500/20 to-transparent'
   },
   {
     id: 'privacy',
     title: 'Privacy First',
     description: 'Your conversations and API keys are stored locally in your browser. No accounts, no tracking, total control.',
-    icon: <ShieldCheck className="h-12 w-12 text-purple-400" />,
+    icon: <ShieldCheck className="h-12 w-12 text-purple-500" />,
     color: 'from-purple-500/20 to-transparent'
   },
   {
@@ -59,7 +59,7 @@ const TOUR_STEPS = [
     title: 'One last thing...',
     description: 'What should we call you? We love to be on a first-name basis!',
     icon: <UserCircle2 className="h-12 w-12 text-primary" />,
-    color: 'from-blue-500/20 to-transparent'
+    color: 'from-primary/20 to-transparent'
   },
   {
     id: 'avatar',
@@ -73,7 +73,7 @@ const TOUR_STEPS = [
     title: 'Personalize Your Journey',
     description: 'Tell us about your experience so we can tailor the AI tutor to your needs.',
     icon: <BarChart3 className="h-12 w-12 text-primary" />,
-    color: 'from-blue-500/20 to-transparent'
+    color: 'from-primary/20 to-transparent'
   }
 ];
 
@@ -139,17 +139,17 @@ export default function WelcomeTour() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0B121F] text-white flex flex-col font-body selection:bg-primary/30">
+    <div className="min-h-screen bg-background text-foreground flex flex-col font-body selection:bg-primary/30 transition-colors duration-300">
       <header className="px-6 h-20 flex items-center justify-between max-w-xl mx-auto w-full shrink-0">
         <div className="flex items-center gap-2">
           <Globe className="h-5 w-5 text-primary" />
-          <span className="text-sm font-black tracking-tighter uppercase">Langor AI</span>
+          <span className="text-sm font-black tracking-tighter uppercase text-foreground">Langor AI</span>
         </div>
         {currentStep < 4 && (
           <Button 
             variant="ghost" 
             onClick={skipTour} 
-            className="text-muted-foreground hover:text-white text-xs font-bold uppercase tracking-widest"
+            className="text-muted-foreground hover:text-foreground text-xs font-bold uppercase tracking-widest"
           >
             Skip
           </Button>
@@ -173,14 +173,14 @@ export default function WelcomeTour() {
                   "p-8 rounded-[3rem] bg-gradient-to-b relative group overflow-hidden mb-2",
                   step.color
                 )}>
-                  <div className="absolute inset-0 bg-white/5 opacity-50" />
+                  <div className="absolute inset-0 bg-muted/20 opacity-50" />
                   <div className="relative z-10">
                     {step.icon}
                   </div>
                 </div>
                 
                 <div className="space-y-3 px-4">
-                  <h1 className="text-3xl font-black tracking-tight">{step.title}</h1>
+                  <h1 className="text-3xl font-black tracking-tight text-foreground">{step.title}</h1>
                   <p className="text-muted-foreground text-base font-medium leading-relaxed">
                     {step.description}
                   </p>
@@ -197,14 +197,14 @@ export default function WelcomeTour() {
                           if (isError) setIsError(false);
                         }}
                         className={cn(
-                          "bg-[#1A2333] border-white/10 h-14 rounded-2xl text-center text-lg focus:ring-primary focus:border-primary shadow-xl transition-all",
-                          isError && "border-red-500 ring-1 ring-red-500"
+                          "bg-card border-border h-14 rounded-2xl text-center text-lg focus:ring-primary focus:border-primary shadow-xl transition-all",
+                          isError && "border-destructive ring-1 ring-destructive"
                         )}
                         onKeyDown={(e) => e.key === 'Enter' && nextStep()}
                         autoFocus
                       />
                       {isError && (
-                        <div className="absolute -bottom-6 left-0 right-0 flex items-center justify-center gap-1 text-[10px] text-red-500 font-bold uppercase tracking-wider">
+                        <div className="absolute -bottom-6 left-0 right-0 flex items-center justify-center gap-1 text-[10px] text-destructive font-bold uppercase tracking-wider">
                           <AlertCircle className="h-3 w-3" />
                           Name is required
                         </div>
@@ -215,7 +215,7 @@ export default function WelcomeTour() {
 
                 {step.id === 'avatar' && (
                   <div className="w-full pt-8 mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                    <div className="grid grid-cols-4 gap-6 p-6 bg-[#1A2333] rounded-[2rem] border border-white/5 shadow-2xl">
+                    <div className="grid grid-cols-4 gap-6 p-6 bg-card rounded-[2rem] border border-border shadow-2xl">
                       {AVATARS.map((emoji) => (
                         <button
                           key={emoji}
@@ -223,8 +223,8 @@ export default function WelcomeTour() {
                           className={cn(
                             "h-14 w-14 flex items-center justify-center text-2xl rounded-2xl transition-all",
                             userAvatar === emoji 
-                              ? "bg-primary shadow-lg shadow-primary/40 scale-110" 
-                              : "bg-[#0B121F] hover:bg-white/5"
+                              ? "bg-primary text-white shadow-lg shadow-primary/40 scale-110" 
+                              : "bg-background hover:bg-muted"
                           )}
                         >
                           {emoji}
@@ -246,10 +246,10 @@ export default function WelcomeTour() {
                             key={level}
                             onClick={() => setUserLevel(level)}
                             className={cn(
-                              "px-4 py-2 rounded-xl text-xs font-bold transition-all border border-white/5",
+                              "px-4 py-2 rounded-xl text-xs font-bold transition-all border border-border",
                               userLevel === level 
                                 ? "bg-primary text-white border-primary shadow-lg shadow-primary/20" 
-                                : "bg-[#1A2333] text-muted-foreground hover:bg-white/5"
+                                : "bg-card text-muted-foreground hover:bg-muted"
                             )}
                           >
                             {level}
@@ -268,10 +268,10 @@ export default function WelcomeTour() {
                             key={goal}
                             onClick={() => setUserGoal(goal)}
                             className={cn(
-                              "px-4 py-2 rounded-xl text-xs font-bold transition-all border border-white/5",
+                              "px-4 py-2 rounded-xl text-xs font-bold transition-all border border-border",
                               userGoal === goal 
-                                ? "bg-[#1D7AFC] text-white border-[#1D7AFC] shadow-lg shadow-blue-500/20" 
-                                : "bg-[#1A2333] text-muted-foreground hover:bg-white/5"
+                                ? "bg-primary text-white border-primary shadow-lg shadow-primary/20" 
+                                : "bg-card text-muted-foreground hover:bg-muted"
                             )}
                           >
                             {goal}
@@ -287,10 +287,10 @@ export default function WelcomeTour() {
         </div>
       </main>
 
-      <footer className="fixed bottom-0 left-0 right-0 p-8 bg-gradient-to-t from-[#0B121F] via-[#0B121F] to-transparent z-50">
+      <footer className="fixed bottom-0 left-0 right-0 p-8 bg-gradient-to-t from-background via-background to-transparent z-50">
         <div className="max-w-md mx-auto space-y-6">
           <div className="flex items-center gap-4">
-            <Progress value={progress} className="h-1 bg-white/5" />
+            <Progress value={progress} className="h-1" />
             <span className="text-[10px] font-black text-muted-foreground whitespace-nowrap uppercase tracking-widest">
               Step {currentStep + 1} / {TOUR_STEPS.length}
             </span>
@@ -301,8 +301,8 @@ export default function WelcomeTour() {
             className={cn(
               "w-full h-16 rounded-2xl text-lg font-bold gap-3 group transition-all",
               isLastStep 
-                ? "bg-[#1D7AFC] hover:bg-[#1D7AFC]/90 text-white shadow-xl shadow-blue-500/25" 
-                : "bg-white text-black hover:bg-white/90"
+                ? "bg-primary hover:bg-primary/90 text-primary-foreground shadow-xl shadow-primary/25" 
+                : "bg-foreground text-background hover:bg-foreground/90"
             )}
           >
             {isLastStep ? (

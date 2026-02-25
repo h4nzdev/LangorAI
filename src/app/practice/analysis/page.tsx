@@ -32,7 +32,7 @@ export default function SessionAnalysis() {
 
   if (!data) {
     return (
-      <div className="min-h-screen bg-[#0B121F] text-white flex items-center justify-center">
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
         <div className="text-center space-y-4">
           <h1 className="text-2xl font-bold">No Analysis Found</h1>
           <Button asChild>
@@ -71,15 +71,15 @@ export default function SessionAnalysis() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#0B121F] text-white flex flex-col font-body selection:bg-primary/30">
+    <div className="min-h-screen bg-background text-foreground flex flex-col font-body selection:bg-primary/30 transition-colors duration-300">
       <header className="flex items-center justify-between px-6 py-5 max-w-xl mx-auto w-full shrink-0">
-        <Button variant="ghost" size="icon" asChild className="text-white hover:bg-white/10 rounded-full">
+        <Button variant="ghost" size="icon" asChild className="hover:bg-accent rounded-full">
           <Link href="/dashboard">
             <X className="h-6 w-6" />
           </Link>
         </Button>
         <h1 className="text-sm font-bold tracking-tight uppercase">Session Analysis</h1>
-        <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 rounded-full">
+        <Button variant="ghost" size="icon" className="hover:bg-accent rounded-full">
           <Share2 className="h-5 w-5" />
         </Button>
       </header>
@@ -98,7 +98,7 @@ export default function SessionAnalysis() {
                   fill="none"
                   stroke="currentColor"
                   strokeWidth="8"
-                  className="text-white/5"
+                  className="text-muted"
                 />
                 <circle
                   cx="96"
@@ -114,11 +114,11 @@ export default function SessionAnalysis() {
                 />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-5xl font-black text-white">{data.overallScore}%</span>
+                <span className="text-5xl font-black text-foreground">{data.overallScore}%</span>
                 <span className="text-[10px] font-bold text-muted-foreground tracking-[0.2em] uppercase">Overall Score</span>
               </div>
             </div>
-            <p className="mt-6 text-sm text-center font-medium text-white/90">
+            <p className="mt-6 text-sm text-center font-medium text-foreground/90">
               {data.overallScore > 80 ? "Excellent session! You sounded more natural." : "Good effort! Focus on the grammar tips below."}
             </p>
           </div>
@@ -136,7 +136,7 @@ export default function SessionAnalysis() {
                     </div>
                     <span className="text-xs font-black text-primary">{skill.value}%</span>
                   </div>
-                  <Progress value={skill.value} className="h-2 bg-white/5" />
+                  <Progress value={skill.value} className="h-2" />
                   <p className="text-[11px] text-muted-foreground leading-relaxed">{skill.desc}</p>
                 </div>
               ))}
@@ -148,12 +148,12 @@ export default function SessionAnalysis() {
             <h2 className="text-lg font-bold">Key Improvements</h2>
             {data.keyImprovements.length > 0 ? (
               data.keyImprovements.map((item, i) => (
-                <div key={i} className="bg-[#1A2333]/40 border border-white/5 rounded-2xl p-4 space-y-2">
-                  <div className="flex items-start gap-2 text-red-400 font-bold text-sm">
+                <div key={i} className="bg-card border border-border rounded-2xl p-4 space-y-2 shadow-sm">
+                  <div className="flex items-start gap-2 text-destructive font-bold text-sm">
                     <span className="text-lg leading-none pt-0.5">⊗</span>
-                    <p className="line-through decoration-red-400/50">{item.error}</p>
+                    <p className="line-through decoration-destructive/50">{item.error}</p>
                   </div>
-                  <div className="flex items-start gap-2 text-emerald-400 font-bold text-sm">
+                  <div className="flex items-start gap-2 text-emerald-600 dark:text-emerald-400 font-bold text-sm">
                     <span className="text-lg leading-none pt-0.5">⊙</span>
                     <p>{item.correction}</p>
                   </div>
@@ -169,21 +169,21 @@ export default function SessionAnalysis() {
 
           {/* Recommended Exercise Card */}
           <section>
-            <div className="relative group overflow-hidden bg-gradient-to-br from-[#1A2333] to-[#0B121F] border border-primary/20 rounded-3xl p-6 shadow-2xl">
+            <div className="relative group overflow-hidden bg-gradient-to-br from-card to-background border border-primary/20 rounded-3xl p-6 shadow-2xl">
               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
                 <Play className="h-24 w-24 text-primary fill-current" />
               </div>
               <div className="relative z-10 space-y-4">
-                <Badge className="bg-primary hover:bg-primary text-[9px] font-black uppercase tracking-wider">
+                <Badge className="bg-primary hover:bg-primary text-[9px] font-black uppercase tracking-wider text-primary-foreground">
                   Recommended for you
                 </Badge>
                 <div className="space-y-1">
-                  <h3 className="text-xl font-black">{data.recommendedExercise.title}</h3>
+                  <h3 className="text-xl font-black text-foreground">{data.recommendedExercise.title}</h3>
                   <p className="text-xs text-muted-foreground leading-relaxed">
                     {data.recommendedExercise.description}
                   </p>
                 </div>
-                <Button className="w-full bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-widest text-xs gap-2 rounded-xl h-12 shadow-lg shadow-primary/20">
+                <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-black uppercase tracking-widest text-xs gap-2 rounded-xl h-12 shadow-lg shadow-primary/20">
                   <Play className="h-4 w-4 fill-current" /> Start Exercise
                 </Button>
               </div>
@@ -192,9 +192,9 @@ export default function SessionAnalysis() {
         </div>
       </main>
 
-      <footer className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-[#0B121F] via-[#0B121F] to-transparent">
+      <footer className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-background via-background to-transparent">
         <div className="max-w-xl mx-auto w-full">
-          <Button asChild className="w-full h-14 rounded-2xl bg-white text-black hover:bg-white/90 font-black uppercase tracking-widest">
+          <Button asChild className="w-full h-14 rounded-2xl bg-foreground text-background hover:bg-foreground/90 font-black uppercase tracking-widest">
             <Link href="/dashboard">Done</Link>
           </Button>
         </div>

@@ -252,9 +252,9 @@ export default function PracticeSession() {
   const isMicDisabled = isThinking || isEnding || isSpeaking;
 
   return (
-    <div className="min-h-screen bg-[#0B121F] text-white flex flex-col font-body selection:bg-primary/30">
+    <div className="min-h-screen bg-background text-foreground flex flex-col font-body selection:bg-primary/30 transition-colors duration-300">
       <header className="flex items-center justify-between px-6 py-5 max-w-xl mx-auto w-full shrink-0">
-        <Button variant="ghost" size="icon" asChild className="text-white hover:bg-white/10 rounded-full">
+        <Button variant="ghost" size="icon" asChild className="hover:bg-accent rounded-full">
           <Link href="/dashboard">
             <ChevronLeft className="h-6 w-6" />
           </Link>
@@ -263,7 +263,7 @@ export default function PracticeSession() {
           <h1 className="text-sm font-bold tracking-tight text-center">Discussing Hobbies</h1>
           <span className="text-[10px] text-primary font-bold tracking-widest uppercase">Session Level: Intermediate</span>
         </div>
-        <Button variant="ghost" size="icon" asChild className="text-white hover:bg-white/10 rounded-full">
+        <Button variant="ghost" size="icon" asChild className="hover:bg-accent rounded-full">
           <Link href="/settings">
             <Settings className="h-5 w-5" />
           </Link>
@@ -273,7 +273,7 @@ export default function PracticeSession() {
       {/* API/Quota Errors */}
       {(errorStatus === 'api-key' || errorStatus === 'quota') && (
         <div className="px-6 max-w-xl mx-auto w-full pt-4 animate-in fade-in slide-in-from-top-4">
-          <Alert variant="destructive" className="bg-red-500/10 border-red-500/20 text-red-400">
+          <Alert variant="destructive" className="bg-destructive/10 border-destructive/20 text-destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle className="font-bold">
               {errorStatus === 'quota' ? 'API Quota Exhausted' : 'Gemini API Key Missing'}
@@ -284,7 +284,7 @@ export default function PracticeSession() {
                   ? "The shared AI quota has been reached. Please add your own free Gemini API key in settings to continue practicing."
                   : "AI conversations require an API key. Please add it to your settings to enable voice-tutor features."}
               </p>
-              <Button size="sm" variant="outline" asChild className="bg-red-500/20 border-red-500/30 hover:bg-red-500/40 text-white h-7 text-[10px]">
+              <Button size="sm" variant="outline" asChild className="border-destructive text-destructive h-7 text-[10px]">
                 <Link href="/settings">Go to Settings</Link>
               </Button>
             </AlertDescription>
@@ -295,28 +295,28 @@ export default function PracticeSession() {
       <main className="flex-1 flex flex-col items-center justify-center px-6 gap-8">
         <div className="relative group">
           <div className={cn(
-            "absolute -inset-1 bg-gradient-to-r from-primary to-blue-400 rounded-full opacity-25 blur transition duration-1000",
+            "absolute -inset-1 bg-gradient-to-r from-primary to-accent rounded-full opacity-25 blur transition duration-1000",
             (isListening || isThinking || isSpeaking) && "opacity-60 blur-md animate-pulse"
           )} />
-          <Avatar className="h-28 w-28 border-4 border-[#1A2333] shadow-2xl relative bg-[#1A2333]">
-            <AvatarFallback className="bg-[#1A2333]">
+          <Avatar className="h-28 w-28 border-4 border-card shadow-2xl relative bg-card">
+            <AvatarFallback className="bg-card">
               <Bot className="h-14 w-14 text-primary" />
             </AvatarFallback>
           </Avatar>
           <div className={cn(
-            "absolute bottom-1 right-2 h-5 w-5 bg-emerald-500 border-4 border-[#0B121F] rounded-full",
-            (isThinking || isSpeaking) && "bg-blue-400 animate-bounce"
+            "absolute bottom-1 right-2 h-5 w-5 bg-emerald-500 border-4 border-background rounded-full",
+            (isThinking || isSpeaking) && "bg-primary animate-bounce"
           )} />
         </div>
 
         <div className="text-center space-y-2">
           <h2 className="text-2xl font-bold tracking-tight">Langor AI</h2>
           {isListening ? (
-            <p className="text-[#1D7AFC] text-xs font-black tracking-[0.2em] uppercase animate-pulse">Listening...</p>
+            <p className="text-primary text-xs font-black tracking-[0.2em] uppercase animate-pulse">Listening...</p>
           ) : isThinking ? (
             <p className="text-primary text-xs font-black tracking-[0.2em] uppercase">Thinking...</p>
           ) : isSpeaking ? (
-            <p className="text-emerald-400 text-xs font-black tracking-[0.2em] uppercase">Speaking...</p>
+            <p className="text-emerald-500 text-xs font-black tracking-[0.2em] uppercase">Speaking...</p>
           ) : (
             <p className="text-muted-foreground text-xs font-black tracking-[0.2em] uppercase">Ready</p>
           )}
@@ -336,36 +336,36 @@ export default function PracticeSession() {
             disabled={isMicDisabled}
             className={cn(
               "h-24 w-24 rounded-full transition-all duration-300 shadow-2xl z-10",
-              isListening ? "bg-red-500 hover:bg-red-600 scale-110" : "bg-[#1D7AFC] hover:bg-[#1D7AFC]/90",
+              isListening ? "bg-destructive hover:bg-destructive/90 scale-110" : "bg-primary hover:bg-primary/90",
               isMicDisabled && "opacity-50 cursor-not-allowed grayscale"
             )}
           >
             {isThinking || isEnding ? (
-              <Loader2 className="h-10 w-10 text-white animate-spin" />
+              <Loader2 className="h-10 w-10 text-primary-foreground animate-spin" />
             ) : isSpeaking ? (
-              <Bot className="h-10 w-10 text-white animate-pulse" />
+              <Bot className="h-10 w-10 text-primary-foreground animate-pulse" />
             ) : isListening ? (
-              <MicOff className="h-10 w-10 text-white fill-current" />
+              <MicOff className="h-10 w-10 text-primary-foreground fill-current" />
             ) : (
-              <Mic className="h-10 w-10 text-white fill-current" />
+              <Mic className="h-10 w-10 text-primary-foreground fill-current" />
             )}
           </Button>
         </div>
 
         <div className="max-w-xs text-center min-h-[4rem]">
-          <p className="text-lg font-medium text-white/90 leading-tight">
+          <p className="text-lg font-medium text-foreground leading-tight">
             "{aiResponseText}"
           </p>
         </div>
 
-        <div className="max-w-xs text-center border-t border-white/5 pt-4">
+        <div className="max-w-xs text-center border-t border-border pt-4">
           <p className="text-sm text-primary/80 leading-relaxed italic font-medium">
             "{transcript}"
           </p>
         </div>
 
         {feedback && feedback.hasCorrection && (
-          <div className="w-full max-sm bg-[#1A2333]/80 backdrop-blur-md border border-white/5 rounded-3xl p-5 shadow-2xl space-y-4 animate-in slide-in-from-bottom-4 duration-500">
+          <div className="w-full max-sm bg-card/80 backdrop-blur-md border border-border rounded-3xl p-5 shadow-2xl space-y-4 animate-in slide-in-from-bottom-4 duration-500">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-primary/20 rounded-xl">
                 <Sparkles className="h-4 w-4 text-primary" />
@@ -373,7 +373,7 @@ export default function PracticeSession() {
               <h3 className="font-bold text-sm">Live Feedback</h3>
             </div>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Instead of <span className="text-red-400 font-bold">"{feedback.originalText}"</span>, try <span className="text-emerald-400 font-bold">"{feedback.correctedText}"</span>.
+              Instead of <span className="text-destructive font-bold">"{feedback.originalText}"</span>, try <span className="text-emerald-500 font-bold">"{feedback.correctedText}"</span>.
             </p>
             {feedback.explanation && (
               <p className="text-[10px] text-muted-foreground italic">
@@ -405,7 +405,7 @@ export default function PracticeSession() {
           variant="destructive" 
           onClick={handleEndSession}
           disabled={isEnding}
-          className="h-14 rounded-2xl flex flex-col gap-1 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 text-red-500 group"
+          className="h-14 rounded-2xl flex flex-col gap-1 bg-destructive/10 border border-destructive/20 hover:bg-destructive/20 text-destructive group"
         >
           {isEnding ? (
             <Loader2 className="h-5 w-5 animate-spin" />
@@ -425,7 +425,7 @@ function ControlBtn({ icon, label, onClick }: { icon: React.ReactNode, label: st
   return (
     <Button 
       variant="secondary" 
-      className="h-14 rounded-2xl flex flex-col gap-1 bg-[#1A2333] border border-white/5 hover:bg-[#252D3D] text-white"
+      className="h-14 rounded-2xl flex flex-col gap-1 bg-card border border-border hover:bg-muted text-foreground"
       onClick={onClick}
     >
       {icon}

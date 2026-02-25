@@ -88,13 +88,13 @@ export default function ProfilePage() {
   const streakProgress = Math.min((parseInt(userStats.streak) / 7) * 100, 100);
 
   return (
-    <div className="min-h-screen bg-[#0B121F] text-white flex flex-col md:flex-row font-body">
+    <div className="min-h-screen bg-background text-foreground flex flex-col md:flex-row font-body transition-colors duration-300">
       <Navigation />
 
       <div className="flex-1 flex flex-col md:pl-64">
         {/* Header */}
         <header className="flex items-center justify-between px-6 py-5 max-w-xl mx-auto w-full shrink-0">
-          <Button variant="ghost" size="icon" asChild className="text-white hover:bg-white/10 rounded-full md:hidden">
+          <Button variant="ghost" size="icon" asChild className="hover:bg-accent rounded-full md:hidden">
             <Link href="/dashboard">
               <ChevronLeft className="h-6 w-6" />
             </Link>
@@ -107,13 +107,13 @@ export default function ProfilePage() {
           {/* Profile Card */}
           <div className="flex flex-col items-center space-y-4 py-4">
             <div className="relative group">
-              <div className="absolute -inset-1 bg-gradient-to-r from-primary to-blue-400 rounded-full opacity-20 blur" />
-              <Avatar className="h-24 w-24 border-4 border-[#1A2333] bg-[#1A2333] relative">
+              <div className="absolute -inset-1 bg-gradient-to-r from-primary to-accent rounded-full opacity-20 blur" />
+              <Avatar className="h-24 w-24 border-4 border-card bg-card relative">
                 <AvatarFallback className="text-4xl">
                   {userAvatar}
                 </AvatarFallback>
               </Avatar>
-              <div className="absolute bottom-0 right-0 bg-primary p-1.5 rounded-full border-2 border-[#0B121F]">
+              <div className="absolute bottom-0 right-0 bg-primary p-1.5 rounded-full border-2 border-background">
                 <Trophy className="h-3 w-3 text-white" />
               </div>
             </div>
@@ -126,9 +126,9 @@ export default function ProfilePage() {
           {/* Stats Grid */}
           <div className="grid grid-cols-3 gap-4">
             {statsList.map((stat) => (
-              <Card key={stat.label} className="bg-[#1A2333] border-none text-white overflow-hidden shadow-lg">
+              <Card key={stat.label} className="bg-card border-none text-card-foreground overflow-hidden shadow-lg">
                 <CardContent className="p-4 flex flex-col items-center gap-1">
-                  <div className="p-2 bg-white/5 rounded-xl mb-1">
+                  <div className="p-2 bg-muted rounded-xl mb-1">
                     {stat.icon}
                   </div>
                   <span className="text-lg font-black">{stat.value}</span>
@@ -144,7 +144,7 @@ export default function ProfilePage() {
               <Flame className="h-5 w-5" />
               <h3>Weekly Goal Progress</h3>
             </div>
-            <Card className="bg-[#1A2333] border-none text-white shadow-xl">
+            <Card className="bg-card border-none text-card-foreground shadow-xl">
               <CardContent className="p-6 space-y-4">
                 <div className="flex justify-between items-end">
                   <div className="space-y-1">
@@ -154,13 +154,13 @@ export default function ProfilePage() {
                   <Badge className={cn(
                     "border-none font-bold",
                     parseInt(userStats.streak) > 0 
-                      ? "bg-emerald-500/20 text-emerald-400" 
-                      : "bg-orange-500/20 text-orange-400"
+                      ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400" 
+                      : "bg-orange-500/20 text-orange-600 dark:text-orange-400"
                   )}>
                     {parseInt(userStats.streak) > 0 ? "On Track" : "Start Today"}
                   </Badge>
                 </div>
-                <Progress value={streakProgress} className="h-2 bg-white/5" />
+                <Progress value={streakProgress} className="h-2" />
                 <p className="text-[11px] text-muted-foreground italic">
                   {parseInt(userStats.streak) >= 7 
                     ? "Weekly goal achieved! Outstanding work."
@@ -176,7 +176,7 @@ export default function ProfilePage() {
               <Smile className="h-5 w-5" />
               <h3>Personal Preferences</h3>
             </div>
-            <Card className="bg-[#1A2333] border-none text-white shadow-xl">
+            <Card className="bg-card border-none text-card-foreground shadow-xl">
               <CardContent className="p-6 space-y-6">
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Your Name</label>
@@ -186,7 +186,7 @@ export default function ProfilePage() {
                       setUserName(e.target.value);
                       if (isSaved) setIsSaved(false);
                     }}
-                    className="bg-[#0B121F] border-white/10 h-11 focus:ring-primary"
+                    className="bg-background border-border h-11 focus:ring-primary"
                     placeholder="Hanz"
                   />
                 </div>
@@ -202,10 +202,10 @@ export default function ProfilePage() {
                           if (isSaved) setIsSaved(false);
                         }}
                         className={cn(
-                          "h-10 w-10 flex items-center justify-center text-xl rounded-xl transition-all border border-white/5",
+                          "h-10 w-10 flex items-center justify-center text-xl rounded-xl transition-all border border-border",
                           userAvatar === emoji 
-                            ? "bg-primary border-primary shadow-lg shadow-primary/20" 
-                            : "bg-[#0B121F] hover:bg-[#1A2333]"
+                            ? "bg-primary border-primary shadow-lg shadow-primary/20 text-white" 
+                            : "bg-background hover:bg-muted"
                         )}
                       >
                         {emoji}
@@ -222,10 +222,10 @@ export default function ProfilePage() {
                         key={lang}
                         onClick={() => setLanguage(lang)}
                         className={cn(
-                          "px-3 py-1.5 rounded-xl text-xs font-bold transition-all border border-white/5",
+                          "px-3 py-1.5 rounded-xl text-xs font-bold transition-all border border-border",
                           language === lang 
                             ? "bg-primary text-white border-primary shadow-lg shadow-primary/20" 
-                            : "bg-[#0B121F] text-muted-foreground hover:bg-[#1A2333] hover:text-white"
+                            : "bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
                         )}
                       >
                         {lang}
@@ -245,10 +245,10 @@ export default function ProfilePage() {
                           if (isSaved) setIsSaved(false);
                         }}
                         className={cn(
-                          "px-3 py-1.5 rounded-xl text-xs font-bold transition-all border border-white/5",
+                          "px-3 py-1.5 rounded-xl text-xs font-bold transition-all border border-border",
                           level === l 
-                            ? "bg-[#1D7AFC] text-white border-[#1D7AFC] shadow-lg shadow-blue-500/20" 
-                            : "bg-[#0B121F] text-muted-foreground hover:bg-[#1A2333] hover:text-white"
+                            ? "bg-primary text-white border-primary shadow-lg shadow-primary/20" 
+                            : "bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
                         )}
                       >
                         {l}
@@ -268,10 +268,10 @@ export default function ProfilePage() {
                           if (isSaved) setIsSaved(false);
                         }}
                         className={cn(
-                          "px-3 py-1.5 rounded-xl text-xs font-bold transition-all border border-white/5",
+                          "px-3 py-1.5 rounded-xl text-xs font-bold transition-all border border-border",
                           goal === g 
                             ? "bg-primary text-white border-primary shadow-lg shadow-primary/20" 
-                            : "bg-[#0B121F] text-muted-foreground hover:bg-[#1A2333] hover:text-white"
+                            : "bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
                         )}
                       >
                         {g}
@@ -285,8 +285,8 @@ export default function ProfilePage() {
                   className={cn(
                     "w-full h-12 rounded-xl font-bold gap-2 transition-all",
                     isSaved 
-                      ? "bg-emerald-500 hover:bg-emerald-600" 
-                      : "bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20"
+                      ? "bg-emerald-500 hover:bg-emerald-600 text-white" 
+                      : "bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20"
                   )}
                 >
                   {isSaved ? (
@@ -307,7 +307,7 @@ export default function ProfilePage() {
           <section className="pt-4">
             <Button 
               variant="ghost" 
-              className="w-full text-red-500 hover:text-red-400 hover:bg-red-500/10 h-12 rounded-xl font-bold gap-2"
+              className="w-full text-destructive hover:text-destructive hover:bg-destructive/10 h-12 rounded-xl font-bold gap-2"
               onClick={() => {
                 localStorage.clear();
                 window.location.href = '/';

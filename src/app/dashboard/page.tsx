@@ -115,33 +115,33 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0B121F] text-white flex flex-col md:flex-row font-body">
+    <div className="min-h-screen bg-background text-foreground flex flex-col md:flex-row font-body transition-colors duration-300">
       <Navigation />
       
       <div className="flex-1 flex flex-col md:pl-64">
         {/* Header */}
         <header className="flex items-center justify-between px-6 py-4 max-w-4xl mx-auto w-full shrink-0">
           <Link href="/profile" className="md:hidden">
-            <Avatar className="h-10 w-10 border-2 border-primary/20 bg-[#1A2333] hover:border-primary/50 transition-colors">
-              <AvatarFallback className="bg-[#1A2333] text-xl">
+            <Avatar className="h-10 w-10 border-2 border-primary/20 bg-card hover:border-primary/50 transition-colors">
+              <AvatarFallback className="bg-card text-xl">
                 {userAvatar}
               </AvatarFallback>
             </Avatar>
           </Link>
           <span className="text-xl font-bold tracking-tight md:hidden">Langor AI</span>
           <div className="hidden md:flex items-center gap-3 ml-auto">
-            <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 rounded-xl">
+            <Button variant="ghost" size="icon" className="hover:bg-accent rounded-xl">
               <Bell className="h-6 w-6" />
             </Button>
             <Link href="/profile">
-              <Avatar className="h-10 w-10 border-2 border-primary/20 bg-[#1A2333] hover:border-primary/50 transition-colors">
-                <AvatarFallback className="bg-[#1A2333] text-xl">
+              <Avatar className="h-10 w-10 border-2 border-primary/20 bg-card hover:border-primary/50 transition-colors">
+                <AvatarFallback className="bg-card text-xl">
                   {userAvatar}
                 </AvatarFallback>
               </Avatar>
             </Link>
           </div>
-          <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 rounded-xl md:hidden">
+          <Button variant="ghost" size="icon" className="hover:bg-accent rounded-xl md:hidden">
             <Bell className="h-6 w-6" />
           </Button>
         </header>
@@ -157,7 +157,7 @@ export default function Dashboard() {
             {/* Stats Overview */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Confidence Level Card */}
-              <Card className="bg-[#1A2333] border-none text-white shadow-xl">
+              <Card className="bg-card border-none shadow-xl">
                 <CardContent className="p-6 space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -168,7 +168,7 @@ export default function Dashboard() {
                     </div>
                     <span className="text-2xl font-black text-primary">{stats.confidence}%</span>
                   </div>
-                  <Progress value={stats.confidence} className="h-2.5 bg-white/5" />
+                  <Progress value={stats.confidence} className="h-2.5" />
                   <div className="flex items-center justify-between text-[10px] font-black tracking-wider text-muted-foreground uppercase">
                     <span>{getLevelLabel(stats.confidence)}</span>
                     <span className="text-primary">Goal: 100%</span>
@@ -177,14 +177,14 @@ export default function Dashboard() {
               </Card>
 
               {/* Streak & Sessions Card */}
-              <Card className="bg-[#1A2333] border-none text-white shadow-xl">
+              <Card className="bg-card border-none shadow-xl">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-around h-full">
                     <div className="flex flex-col items-center gap-2">
                       <div className="bg-orange-500/20 p-3 rounded-2xl relative">
                         <Flame className="h-6 w-6 text-orange-500 fill-current" />
                         {stats.streak > 0 && (
-                          <div className="absolute -top-1 -right-1 bg-orange-500 text-[10px] font-black h-5 w-5 rounded-full flex items-center justify-center border-2 border-[#1A2333]">
+                          <div className="absolute -top-1 -right-1 bg-orange-500 text-[10px] font-black h-5 w-5 rounded-full flex items-center justify-center border-2 border-card">
                             !
                           </div>
                         )}
@@ -195,7 +195,7 @@ export default function Dashboard() {
                       </div>
                     </div>
                     
-                    <div className="w-px h-12 bg-white/5" />
+                    <div className="w-px h-12 bg-border" />
 
                     <div className="flex flex-col items-center gap-2">
                       <div className="bg-primary/20 p-3 rounded-2xl">
@@ -212,7 +212,7 @@ export default function Dashboard() {
             </div>
 
             {/* Start AI Session CTA */}
-            <Button asChild className="w-full h-16 rounded-2xl bg-[#1D7AFC] hover:bg-[#1D7AFC]/90 text-white text-lg font-bold gap-3 shadow-lg shadow-blue-500/20 group">
+            <Button asChild className="w-full h-16 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground text-lg font-bold gap-3 shadow-lg shadow-primary/20 group">
               <Link href="/practice">
                 <div className="bg-white/20 p-1.5 rounded-full group-hover:scale-110 transition-transform">
                   <Mic className="h-6 w-6 fill-current" />
@@ -236,8 +236,8 @@ export default function Dashboard() {
                         className={cn(
                           "w-full rounded-t-lg transition-all duration-500",
                           isActive 
-                            ? "bg-primary h-12 shadow-[0_0_15px_rgba(29,122,252,0.4)]" 
-                            : "bg-white/5 h-6 hover:bg-white/10"
+                            ? "bg-primary h-12 shadow-[0_0_15px_rgba(var(--primary),0.4)]" 
+                            : "bg-muted h-6 hover:bg-muted/80"
                         )} 
                       />
                       <span className="text-[10px] font-bold text-muted-foreground">{day}</span>
@@ -261,7 +261,7 @@ export default function Dashboard() {
                   const img = PlaceHolderImages.find(p => p.id === item.imageId);
                   return (
                     <Link key={item.id} href="/practice" className="block">
-                      <Card className="bg-[#1A2333] border-none overflow-hidden hover:ring-2 ring-primary/50 transition-all cursor-pointer shadow-lg group h-full">
+                      <Card className="bg-card border-none overflow-hidden hover:ring-2 ring-primary/50 transition-all cursor-pointer shadow-lg group h-full">
                         <div className="relative aspect-video w-full overflow-hidden">
                           {img && (
                             <Image 
@@ -271,18 +271,18 @@ export default function Dashboard() {
                               className="object-cover group-hover:scale-105 transition-transform duration-300"
                             />
                           )}
-                          <div className="absolute inset-0 bg-gradient-to-t from-[#1A2333] to-transparent opacity-60" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-60" />
                         </div>
                         <CardContent className="p-3 space-y-1">
-                          <h3 className="font-bold text-sm leading-tight text-white">{item.title}</h3>
+                          <h3 className="font-bold text-sm leading-tight text-foreground">{item.title}</h3>
                           <p className="text-[10px] text-muted-foreground">{item.meta}</p>
-                          <Badge variant="outline" className="text-[8px] h-4 py-0 border-white/10 text-muted-foreground">{item.level}</Badge>
+                          <Badge variant="outline" className="text-[8px] h-4 py-0 border-border text-muted-foreground">{item.level}</Badge>
                         </CardContent>
                       </Card>
                     </Link>
                   );
                 }) : (
-                  <div className="col-span-full py-8 text-center bg-[#1A2333] rounded-3xl border border-dashed border-white/10">
+                  <div className="col-span-full py-8 text-center bg-card rounded-3xl border border-dashed border-border">
                     <p className="text-muted-foreground text-sm italic">Finding perfect matches for your profile...</p>
                   </div>
                 )}
