@@ -24,7 +24,7 @@ export default function Home() {
             Features
           </Link>
           <Button asChild className="bg-[#1D7AFC] hover:bg-[#1D7AFC]/90 text-white rounded-xl px-6 font-bold shadow-lg shadow-blue-500/20">
-            <Link href="/dashboard">Get Started</Link>
+            <Link href="/welcome">Get Started</Link>
           </Button>
         </nav>
       </header>
@@ -48,7 +48,7 @@ export default function Home() {
               </p>
               <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
                 <Button size="lg" className="h-14 px-10 bg-[#1D7AFC] hover:bg-[#1D7AFC]/90 text-white rounded-2xl text-lg font-bold gap-3 shadow-xl shadow-blue-500/25" asChild>
-                  <Link href="/dashboard">
+                  <Link href="/welcome">
                     <Mic className="h-6 w-6 fill-current" />
                     Start Speaking Now
                   </Link>
@@ -100,7 +100,7 @@ export default function Home() {
                   Join thousands of learners speaking confidently with Langor AI.
                 </p>
                 <Button size="lg" className="h-16 px-12 bg-white text-black hover:bg-white/90 rounded-2xl text-xl font-black uppercase tracking-widest shadow-2xl shadow-white/10" asChild>
-                  <Link href="/dashboard">Get Started Free</Link>
+                  <Link href="/welcome">Get Started Free</Link>
                 </Button>
               </div>
             </Card>
