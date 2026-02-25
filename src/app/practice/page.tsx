@@ -16,7 +16,9 @@ import {
   Loader2,
   AlertCircle,
   Settings,
-  Bot
+  Bot,
+  Activity,
+  History
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { startPracticeSession, summarizeSession, type PracticeOutput } from '@/ai/flows/practice-flow';
@@ -43,9 +45,9 @@ export default function PracticeSession() {
   const [isThinking, setIsThinking] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
-  const [transcript, setTranscript] = useState("Click the mic to start speaking...");
+  const [transcript, setTranscript] = useState("Tap mic to initiate link...");
   const [feedback, setFeedback] = useState<PracticeOutput['feedback'] | null>(null);
-  const [aiResponseText, setAiResponseText] = useState("Hi! I'm Langor AI. What hobbies do you enjoy?");
+  const [aiResponseText, setAiResponseText] = useState("Greetings. I am Langor AI. What hobbies occupy your time?");
   const [history, setHistory] = useState<{role: 'user' | 'model', text: string}[]>([]);
   const [errorStatus, setErrorStatus] = useState<'none' | 'generic' | 'api-key' | 'quota'>('none');
   const [startTime] = useState(Date.now());
@@ -78,7 +80,7 @@ export default function PracticeSession() {
       recognition.onerror = (event: any) => {
         setIsListening(false);
         if (event.error !== 'no-speech') {
-          setTranscript("Error: Try again.");
+          setTranscript("Signal lost. Re-attempting...");
         } else {
           if (!isMutedRef.current && !isThinking && !isSpeaking && !isEndingRef.current) {
             setTimeout(() => {
@@ -114,7 +116,7 @@ export default function PracticeSession() {
       setIsListening(false);
     } else {
       startListeningSafely();
-      setTranscript("Listening...");
+      setTranscript("Listening for input...");
     }
   };
 
@@ -122,7 +124,6 @@ export default function PracticeSession() {
     setIsThinking(true);
     setErrorStatus('none');
     
-    // 3 second conversational delay as requested
     await new Promise(resolve => setTimeout(resolve, 3000));
 
     const savedApiKey = localStorage.getItem('GEMINI_API_KEY') || undefined;
@@ -152,7 +153,7 @@ export default function PracticeSession() {
         setErrorStatus('generic');
       }
       
-      setTranscript("Sorry, I had trouble thinking. Try again?");
+      setTranscript("Core logic interrupted. Standing by.");
       setIsThinking(false);
     }
   };
@@ -238,12 +239,7 @@ export default function PracticeSession() {
       router.push('/practice/analysis');
     } catch (error: any) {
       console.error("Analysis Error:", error);
-      const msg = error.message?.toLowerCase() || "";
-      if (msg.includes('quota') || msg.includes('429')) {
-        setErrorStatus('quota');
-      } else {
-        router.push('/dashboard');
-      }
+      router.push('/dashboard');
     } finally {
       setIsEnding(false);
     }
@@ -253,80 +249,86 @@ export default function PracticeSession() {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col font-body selection:bg-primary/30 transition-colors duration-300">
+      {/* Header */}
       <header className="flex items-center justify-between px-6 py-5 max-w-xl mx-auto w-full shrink-0">
-        <Button variant="ghost" size="icon" asChild className="hover:bg-accent rounded-full">
+        <Button variant="ghost" size="icon" asChild className="hover:bg-accent rounded-full h-12 w-12 border border-border">
           <Link href="/dashboard">
             <ChevronLeft className="h-6 w-6" />
           </Link>
         </Button>
         <div className="flex flex-col items-center">
-          <h1 className="text-sm font-bold tracking-tight text-center">Discussing Hobbies</h1>
-          <span className="text-[10px] text-primary font-bold tracking-widest uppercase">Session Level: Intermediate</span>
+          <h1 className="text-xs font-black tracking-[0.2em] text-center uppercase text-foreground/80">Discussing Hobbies</h1>
+          <div className="flex items-center gap-1.5 mt-1">
+            <div className="h-1.5 w-1.5 bg-accent rounded-full animate-pulse shadow-[0_0_5px_rgba(var(--accent),0.8)]" />
+            <span className="text-[10px] text-accent font-black tracking-widest uppercase">System Active</span>
+          </div>
         </div>
-        <Button variant="ghost" size="icon" asChild className="hover:bg-accent rounded-full">
+        <Button variant="ghost" size="icon" asChild className="hover:bg-accent rounded-full h-12 w-12 border border-border">
           <Link href="/settings">
             <Settings className="h-5 w-5" />
           </Link>
         </Button>
       </header>
 
-      {/* API/Quota Errors */}
+      {/* Quota Alerts */}
       {(errorStatus === 'api-key' || errorStatus === 'quota') && (
-        <div className="px-6 max-w-xl mx-auto w-full pt-4 animate-in fade-in slide-in-from-top-4">
-          <Alert variant="destructive" className="bg-destructive/10 border-destructive/20 text-destructive">
+        <div className="px-6 max-w-xl mx-auto w-full pt-2">
+          <Alert variant="destructive" className="bg-destructive/5 border-destructive/20 rounded-2xl">
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle className="font-bold">
-              {errorStatus === 'quota' ? 'API Quota Exhausted' : 'Gemini API Key Missing'}
-            </AlertTitle>
-            <AlertDescription className="text-xs opacity-90 space-y-2">
-              <p>
-                {errorStatus === 'quota' 
-                  ? "The shared AI quota has been reached. Please add your own free Gemini API key in settings to continue practicing."
-                  : "AI conversations require an API key. Please add it to your settings to enable voice-tutor features."}
-              </p>
-              <Button size="sm" variant="outline" asChild className="border-destructive text-destructive h-7 text-[10px]">
-                <Link href="/settings">Go to Settings</Link>
-              </Button>
+            <AlertTitle className="text-xs font-black uppercase tracking-wider">Protocol Interrupted</AlertTitle>
+            <AlertDescription className="text-[10px] opacity-80 mt-1">
+              API limits reached. Provide a personal key in settings to bypass.
             </AlertDescription>
           </Alert>
         </div>
       )}
 
-      <main className="flex-1 flex flex-col items-center justify-center px-6 gap-8">
+      <main className="flex-1 flex flex-col items-center justify-center px-6 gap-10">
+        {/* Avatar Section */}
         <div className="relative group">
           <div className={cn(
-            "absolute -inset-1 bg-gradient-to-r from-primary to-accent rounded-full opacity-25 blur transition duration-1000",
-            (isListening || isThinking || isSpeaking) && "opacity-60 blur-md animate-pulse"
+            "absolute -inset-4 bg-accent/20 rounded-full blur-2xl transition-opacity duration-1000",
+            (isThinking || isSpeaking) ? "opacity-100" : "opacity-0"
           )} />
-          <Avatar className="h-28 w-28 border-4 border-card shadow-2xl relative bg-card">
-            <AvatarFallback className="bg-card">
-              <Bot className="h-14 w-14 text-primary" />
-            </AvatarFallback>
-          </Avatar>
-          <div className={cn(
-            "absolute bottom-1 right-2 h-5 w-5 bg-emerald-500 border-4 border-background rounded-full",
-            (isThinking || isSpeaking) && "bg-primary animate-bounce"
-          )} />
+          <div className="relative flex items-center justify-center h-32 w-32 rounded-full border border-accent/30 bg-card/50 backdrop-blur-sm shadow-[inset_0_0_20px_rgba(var(--accent),0.1)]">
+             <div className="absolute inset-0 rounded-full border border-accent/10 scale-125" />
+             <div className="absolute inset-0 rounded-full border border-accent/5 scale-150" />
+             <Bot className={cn(
+               "h-16 w-16 text-accent transition-all duration-500",
+               (isThinking || isSpeaking) && "scale-110 drop-shadow-[0_0_10px_rgba(var(--accent),0.5)]"
+             )} />
+          </div>
         </div>
 
+        {/* AI Title */}
         <div className="text-center space-y-2">
-          <h2 className="text-2xl font-bold tracking-tight">Langor AI</h2>
+          <h2 className="text-xl font-black tracking-[0.15em] uppercase text-foreground">Langor-4 AI</h2>
           {isListening ? (
-            <p className="text-primary text-xs font-black tracking-[0.2em] uppercase animate-pulse">Listening...</p>
+            <p className="text-accent text-[10px] font-black tracking-[0.25em] uppercase animate-pulse">Processing Voice...</p>
           ) : isThinking ? (
-            <p className="text-primary text-xs font-black tracking-[0.2em] uppercase">Thinking...</p>
+            <p className="text-primary text-[10px] font-black tracking-[0.25em] uppercase animate-pulse">Neural Computing...</p>
           ) : isSpeaking ? (
-            <p className="text-emerald-500 text-xs font-black tracking-[0.2em] uppercase">Speaking...</p>
+            <p className="text-emerald-500 text-[10px] font-black tracking-[0.25em] uppercase">Synthesizing Audio...</p>
           ) : (
-            <p className="text-muted-foreground text-xs font-black tracking-[0.2em] uppercase">Ready</p>
+            <p className="text-muted-foreground text-[10px] font-black tracking-[0.25em] uppercase">Standby Mode</p>
           )}
         </div>
 
-        <div className="relative flex items-center justify-center w-full h-48">
+        {/* Visualizer & Mic */}
+        <div className="relative flex items-center justify-center w-full h-56">
+          <div className={cn(
+            "absolute h-56 w-56 border border-accent/10 rounded-full transition-transform duration-1000",
+            isListening && "scale-110 border-accent/20"
+          )} />
+          <div className={cn(
+            "absolute h-40 w-40 border border-accent/20 rounded-full transition-transform duration-700",
+            isListening && "scale-110 border-accent/40"
+          )} />
+          
           {isListening && (
             <>
-              <div className="absolute w-48 h-48 border border-primary/10 rounded-full animate-ping [animation-duration:2s]" />
-              <div className="absolute w-64 h-64 border border-primary/5 rounded-full animate-ping [animation-duration:3s]" />
+              <div className="absolute w-40 h-40 border border-accent/30 rounded-full animate-ping [animation-duration:2s]" />
+              <div className="absolute w-56 h-56 border border-accent/10 rounded-full animate-ping [animation-duration:3s]" />
             </>
           )}
           
@@ -335,59 +337,76 @@ export default function PracticeSession() {
             onClick={toggleListening}
             disabled={isMicDisabled}
             className={cn(
-              "h-24 w-24 rounded-full transition-all duration-300 shadow-2xl z-10",
-              isListening ? "bg-destructive hover:bg-destructive/90 scale-110" : "bg-primary hover:bg-primary/90",
-              isMicDisabled && "opacity-50 cursor-not-allowed grayscale"
+              "h-24 w-24 rounded-full transition-all duration-300 shadow-[0_0_30px_rgba(var(--accent),0.2)] z-10 border-2",
+              isListening 
+                ? "bg-destructive/10 border-destructive text-destructive scale-110" 
+                : "bg-accent/10 border-accent text-accent hover:bg-accent/20",
+              isMicDisabled && "opacity-20 grayscale border-border"
             )}
           >
             {isThinking || isEnding ? (
-              <Loader2 className="h-10 w-10 text-primary-foreground animate-spin" />
+              <Loader2 className="h-10 w-10 animate-spin" />
             ) : isSpeaking ? (
-              <Bot className="h-10 w-10 text-primary-foreground animate-pulse" />
-            ) : isListening ? (
-              <MicOff className="h-10 w-10 text-primary-foreground fill-current" />
+              <Activity className="h-10 w-10 animate-pulse" />
             ) : (
-              <Mic className="h-10 w-10 text-primary-foreground fill-current" />
+              <Mic className={cn("h-10 w-10", isListening && "fill-current")} />
             )}
           </Button>
         </div>
 
-        <div className="max-w-xs text-center min-h-[4rem]">
-          <p className="text-lg font-medium text-foreground leading-tight">
-            "{aiResponseText}"
-          </p>
-        </div>
-
-        <div className="max-w-xs text-center border-t border-border pt-4">
-          <p className="text-sm text-primary/80 leading-relaxed italic font-medium">
+        {/* User Transcript View */}
+        <div className="max-w-xs text-center min-h-[3rem] px-4">
+          <p className="text-sm font-medium text-foreground/70 leading-relaxed italic tracking-wide">
             "{transcript}"
           </p>
         </div>
 
-        {feedback && feedback.hasCorrection && (
-          <div className="w-full max-sm bg-card/80 backdrop-blur-md border border-border rounded-3xl p-5 shadow-2xl space-y-4 animate-in slide-in-from-bottom-4 duration-500">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary/20 rounded-xl">
-                <Sparkles className="h-4 w-4 text-primary" />
-              </div>
-              <h3 className="font-bold text-sm">Live Feedback</h3>
-            </div>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Instead of <span className="text-destructive font-bold">"{feedback.originalText}"</span>, try <span className="text-emerald-500 font-bold">"{feedback.correctedText}"</span>.
-            </p>
-            {feedback.explanation && (
-              <p className="text-[10px] text-muted-foreground italic">
-                {feedback.explanation}
+        {/* AI Output Card (Neural Correction Style) */}
+        <div className="w-full max-w-sm">
+          {feedback && feedback.hasCorrection ? (
+             <div className="bg-card/40 backdrop-blur-xl border border-accent/20 rounded-3xl p-6 shadow-2xl space-y-4 animate-in slide-in-from-bottom-6 duration-700">
+               <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-accent/20 rounded-xl">
+                      <Sparkles className="h-4 w-4 text-accent" />
+                    </div>
+                    <h3 className="font-black text-[10px] uppercase tracking-widest text-accent">Neural Correction</h3>
+                  </div>
+                  <span className="text-[9px] font-mono text-muted-foreground uppercase opacity-50">ID: {Math.floor(Math.random()*900+100)}-FX</span>
+               </div>
+               
+               <div className="space-y-3 pt-2">
+                 <p className="text-[11px] text-muted-foreground leading-relaxed">
+                   Syntax variance detected in <span className="text-destructive font-bold">"{feedback.originalText}"</span>.
+                 </p>
+                 <p className="text-[11px] text-foreground font-bold leading-relaxed">
+                   Optimization suggested: <span className="text-accent">"{feedback.correctedText}"</span>.
+                 </p>
+                 <div className="flex items-center justify-between pt-2">
+                    <p className="text-[9px] text-muted-foreground italic opacity-70">
+                      {feedback.explanation}
+                    </p>
+                    <span className="text-[8px] font-black uppercase tracking-tighter text-accent/60 flex items-center gap-1 cursor-pointer hover:text-accent transition-colors">
+                      View Logs <ChevronLeft className="h-2 w-2 rotate-180" />
+                    </span>
+                 </div>
+               </div>
+             </div>
+          ) : (
+            <div className="text-center px-4 animate-in fade-in duration-500">
+              <p className="text-lg font-bold text-foreground leading-tight tracking-tight">
+                "{aiResponseText}"
               </p>
-            )}
-          </div>
-        )}
+            </div>
+          )}
+        </div>
       </main>
 
-      <footer className="p-6 max-w-xl mx-auto w-full grid grid-cols-3 gap-4 pb-10">
+      {/* Futuristic Bottom Controls */}
+      <footer className="p-8 max-w-xl mx-auto w-full grid grid-cols-3 gap-4 pb-12">
         <ControlBtn 
           icon={isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />} 
-          label={isMuted ? "UNMUTE" : "MUTE"} 
+          label="Silence" 
           onClick={() => {
             const newMuted = !isMuted;
             setIsMuted(newMuted);
@@ -398,22 +417,22 @@ export default function PracticeSession() {
           }} 
         />
         <ControlBtn 
-          icon={<FileText className="h-5 w-5" />} 
-          label="TRANSCRIPT" 
+          icon={<History className="h-5 w-5" />} 
+          label="Data Log" 
         />
         <Button 
           variant="destructive" 
           onClick={handleEndSession}
           disabled={isEnding}
-          className="h-14 rounded-2xl flex flex-col gap-1 bg-destructive/10 border border-destructive/20 hover:bg-destructive/20 text-destructive group"
+          className="h-20 rounded-3xl flex flex-col gap-1.5 bg-destructive/10 border-2 border-destructive/20 hover:bg-destructive/20 text-destructive group transition-all duration-300"
         >
           {isEnding ? (
-            <Loader2 className="h-5 w-5 animate-spin" />
+            <Loader2 className="h-6 w-6 animate-spin" />
           ) : (
-            <PhoneOff className="h-5 w-5 group-hover:scale-110 transition-transform" />
+            <PhoneOff className="h-6 w-6 group-hover:scale-110 transition-transform" />
           )}
-          <span className="text-[9px] font-black tracking-widest uppercase">
-            {isEnding ? "Analyzing..." : "End Session"}
+          <span className="text-[9px] font-black tracking-[0.2em] uppercase">
+            {isEnding ? "Computing..." : "Terminate"}
           </span>
         </Button>
       </footer>
@@ -425,11 +444,11 @@ function ControlBtn({ icon, label, onClick }: { icon: React.ReactNode, label: st
   return (
     <Button 
       variant="secondary" 
-      className="h-14 rounded-2xl flex flex-col gap-1 bg-card border border-border hover:bg-muted text-foreground"
+      className="h-20 rounded-3xl flex flex-col gap-1.5 bg-card/50 border border-border hover:bg-accent/10 hover:border-accent/40 text-foreground/80 hover:text-foreground transition-all duration-300"
       onClick={onClick}
     >
-      {icon}
-      <span className="text-[9px] font-black tracking-widest uppercase opacity-70">{label}</span>
+      <div className="h-6 w-6 opacity-80">{icon}</div>
+      <span className="text-[9px] font-black tracking-[0.2em] uppercase opacity-60">{label}</span>
     </Button>
   );
 }
