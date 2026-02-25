@@ -62,11 +62,13 @@ export default function Dashboard() {
     <div className="min-h-screen bg-[#0B121F] text-white flex flex-col font-body">
       {/* Header */}
       <header className="flex items-center justify-between px-6 py-4 max-w-4xl mx-auto w-full">
-        <Avatar className="h-10 w-10 border-2 border-primary/20 bg-[#1A2333]">
-          <AvatarFallback className="bg-[#1A2333]">
-            <User className="h-5 w-5 text-muted-foreground" />
-          </AvatarFallback>
-        </Avatar>
+        <Link href="/profile">
+          <Avatar className="h-10 w-10 border-2 border-primary/20 bg-[#1A2333] hover:border-primary/50 transition-colors">
+            <AvatarFallback className="bg-[#1A2333]">
+              <User className="h-5 w-5 text-muted-foreground" />
+            </AvatarFallback>
+          </Avatar>
+        </Link>
         <span className="text-xl font-bold tracking-tight">Langor AI</span>
         <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 rounded-xl">
           <Bell className="h-6 w-6" />
@@ -174,10 +176,10 @@ export default function Dashboard() {
             <MessageSquare className="h-6 w-6" />
             <span className="text-[10px]">Practice</span>
           </Link>
-          <button className="flex flex-col items-center gap-1 transition-colors text-muted-foreground hover:text-white">
-            <TrendingUp className="h-6 w-6" />
+          <Link href="/profile" className="flex flex-col items-center gap-1 transition-colors text-muted-foreground hover:text-white">
+            <BarChart3 className="h-6 w-6" />
             <span className="text-[10px]">Insights</span>
-          </button>
+          </Link>
           <Link href="/settings" className="flex flex-col items-center gap-1 transition-colors text-muted-foreground hover:text-white">
             <SettingsIcon className="h-6 w-6" />
             <span className="text-[10px]">Settings</span>

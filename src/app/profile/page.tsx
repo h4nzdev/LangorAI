@@ -1,0 +1,252 @@
+'use client';
+
+import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Progress } from '@/components/ui/progress';
+import { 
+  ChevronLeft, 
+  User, 
+  Target, 
+  Flame, 
+  Trophy, 
+  Clock, 
+  Zap,
+  Globe,
+  LogOut,
+  Save,
+  CheckCircle2
+} from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
+
+export default function ProfilePage() {
+  const { toast } = useToast();
+  const [userName, setUserName] = useState('');
+  const [language, setLanguage] = useState('English');
+  const [level, setLevel] = useState('Intermediate');
+  const [isSaved, setIsSaved] = useState(false);
+
+  useEffect(() => {
+    const savedName = localStorage.getItem('USER_NAME');
+    if (savedName) setUserName(savedName);
+  }, []);
+
+  const handleSave = () => {
+    localStorage.setItem('USER_NAME', userName);
+    setIsSaved(true);
+    toast({
+      title: "Profile Updated",
+      description: "Your changes have been saved successfully.",
+    });
+    setTimeout(() => setIsSaved(false), 3000);
+  };
+
+  const stats = [
+    { label: 'Sessions', value: '24', icon: <Zap className="h-4 w-4 text-yellow-400" /> },
+    { label: 'Minutes', value: '480', icon: <Clock className="h-4 w-4 text-blue-400" /> },
+    { label: 'Corrections', value: '112', icon: <Target className="h-4 w-4 text-emerald-400" /> },
+  ];
+
+  const languages = ['English', 'Spanish', 'French', 'German', 'Japanese', 'Korean'];
+  const levels = ['Beginner', 'Elementary', 'Intermediate', 'Advanced', 'Fluent'];
+
+  return (
+    <div className="min-h-screen bg-[#0B121F] text-white flex flex-col font-body">
+      {/* Header */}
+      <header className="flex items-center justify-between px-6 py-5 max-w-xl mx-auto w-full">
+        <Button variant="ghost" size="icon" asChild className="text-white hover:bg-white/10 rounded-full">
+          <Link href="/dashboard">
+            <ChevronLeft className="h-6 w-6" />
+          </Link>
+        </Button>
+        <h1 className="text-sm font-bold tracking-tight uppercase">User Profile</h1>
+        <div className="w-10" /> {/* Spacer */}
+      </header>
+
+      <main className="flex-1 max-w-xl mx-auto w-full px-6 space-y-8 pb-32">
+        {/* Profile Card */}
+        <div className="flex flex-col items-center space-y-4 py-4">
+          <div className="relative group">
+            <div className="absolute -inset-1 bg-gradient-to-r from-primary to-blue-400 rounded-full opacity-20 blur" />
+            <Avatar className="h-24 w-24 border-4 border-[#1A2333] bg-[#1A2333] relative">
+              <AvatarFallback>
+                <User className="h-10 w-10 text-muted-foreground" />
+              </AvatarFallback>
+            </Avatar>
+            <div className="absolute bottom-0 right-0 bg-primary p-1.5 rounded-full border-2 border-[#0B121F]">
+              <Trophy className="h-3 w-3 text-white" />
+            </div>
+          </div>
+          <div className="text-center">
+            <h2 className="text-2xl font-bold">{userName || 'User'}</h2>
+            <p className="text-xs text-muted-foreground uppercase tracking-widest font-bold">Master Student</p>
+          </div>
+        </div>
+
+        {/* Stats Grid */}
+        <div className="grid grid-cols-3 gap-4">
+          {stats.map((stat) => (
+            <Card key={stat.label} className="bg-[#1A2333] border-none text-white overflow-hidden shadow-lg">
+              <CardContent className="p-4 flex flex-col items-center gap-1">
+                <div className="p-2 bg-white/5 rounded-xl mb-1">
+                  {stat.icon}
+                </div>
+                <span className="text-lg font-black">{stat.value}</span>
+                <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">{stat.label}</span>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Learning Goals */}
+        <section className="space-y-4">
+          <div className="flex items-center gap-2 text-primary font-bold">
+            <Flame className="h-5 w-5" />
+            <h3>Daily Streak Goal</h3>
+          </div>
+          <Card className="bg-[#1A2333] border-none text-white shadow-xl">
+            <CardContent className="p-6 space-y-4">
+              <div className="flex justify-between items-end">
+                <div className="space-y-1">
+                  <span className="text-3xl font-black">5/7</span>
+                  <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">Days this week</p>
+                </div>
+                <Badge className="bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border-none font-bold">
+                  On Track
+                </Badge>
+              </div>
+              <Progress value={71} className="h-2 bg-white/5" />
+              <p className="text-[11px] text-muted-foreground italic">
+                You're just 2 days away from your weekly goal! Keep it up.
+              </p>
+            </CardContent>
+          </Card>
+        </section>
+
+        {/* Personal Details & Settings */}
+        <section className="space-y-4">
+          <div className="flex items-center gap-2 text-primary font-bold">
+            <Globe className="h-5 w-5" />
+            <h3>Personal Preferences</h3>
+          </div>
+          <Card className="bg-[#1A2333] border-none text-white shadow-xl">
+            <CardContent className="p-6 space-y-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Your Name</label>
+                <Input 
+                  value={userName}
+                  onChange={(e) => {
+                    setUserName(e.target.value);
+                    if (isSaved) setIsSaved(false);
+                  }}
+                  className="bg-[#0B121F] border-white/10 h-11 focus:ring-primary"
+                  placeholder="Hanz"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Practicing</label>
+                <div className="flex flex-wrap gap-2">
+                  {languages.map((lang) => (
+                    <button
+                      key={lang}
+                      onClick={() => setLanguage(lang)}
+                      className={cn(
+                        "px-3 py-1.5 rounded-xl text-xs font-bold transition-all border border-white/5",
+                        language === lang 
+                          ? "bg-primary text-white border-primary shadow-lg shadow-primary/20" 
+                          : "bg-[#0B121F] text-muted-foreground hover:bg-[#1A2333] hover:text-white"
+                      )}
+                    >
+                      {lang}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Current Level</label>
+                <div className="flex flex-wrap gap-2">
+                  {levels.map((l) => (
+                    <button
+                      key={l}
+                      onClick={() => setLevel(l)}
+                      className={cn(
+                        "px-3 py-1.5 rounded-xl text-xs font-bold transition-all border border-white/5",
+                        level === l 
+                          ? "bg-[#1D7AFC] text-white border-[#1D7AFC] shadow-lg shadow-blue-500/20" 
+                          : "bg-[#0B121F] text-muted-foreground hover:bg-[#1A2333] hover:text-white"
+                      )}
+                    >
+                      {l}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <Button 
+                onClick={handleSave}
+                className={cn(
+                  "w-full h-12 rounded-xl font-bold gap-2 transition-all",
+                  isSaved 
+                    ? "bg-emerald-500 hover:bg-emerald-600" 
+                    : "bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20"
+                )}
+              >
+                {isSaved ? (
+                  <>
+                    <CheckCircle2 className="h-5 w-5" /> Saved Successfully
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-5 w-5" /> Save Profile
+                  </>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+        </section>
+
+        {/* Danger Zone */}
+        <section className="pt-4">
+          <Button 
+            variant="ghost" 
+            className="w-full text-red-500 hover:text-red-400 hover:bg-red-500/10 h-12 rounded-xl font-bold gap-2"
+            onClick={() => {
+              localStorage.clear();
+              window.location.href = '/';
+            }}
+          >
+            <LogOut className="h-4 w-4" /> Reset All Data
+          </Button>
+        </section>
+      </main>
+
+      {/* Bottom Navigation (Reused) */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-[#0B121F]/80 backdrop-blur-lg border-t border-white/5 px-6 py-3 z-50">
+        <div className="max-w-xl mx-auto flex items-center justify-between">
+          <Link href="/dashboard" className="flex flex-col items-center gap-1 transition-colors text-muted-foreground hover:text-white">
+            <Home className="h-6 w-6" />
+            <span className="text-[10px]">Home</span>
+          </Link>
+          <Link href="/practice" className="flex flex-col items-center gap-1 transition-colors text-muted-foreground hover:text-white">
+            <MessageSquare className="h-6 w-6" />
+            <span className="text-[10px]">Practice</span>
+          </Link>
+          <Link href="/profile" className="flex flex-col items-center gap-1 transition-colors text-primary font-bold">
+            <BarChart3 className="h-6 w-6" />
+            <span className="text-[10px]">Insights</span>
+          </Link>
+          <Link href="/settings" className="flex flex-col items-center gap-1 transition-colors text-muted-foreground hover:text-white">
+            <SettingsIcon className="h-6 w-6" />
+            <span className="text-[10px]">Settings</span>
+          </Link>
+        </div>
+      </nav>
+    </div>
+  );
+}
