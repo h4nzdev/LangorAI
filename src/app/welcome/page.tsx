@@ -124,7 +124,6 @@ export default function WelcomeTour() {
     const trimmedName = userName.trim();
     if (!trimmedName) return;
     
-    // Set initializing state to show splash screen
     setIsInitializing(true);
     
     localStorage.setItem('USER_NAME', trimmedName);
@@ -136,7 +135,6 @@ export default function WelcomeTour() {
     if (!localStorage.getItem('TOTAL_MINUTES')) localStorage.setItem('TOTAL_MINUTES', '0');
     if (!localStorage.getItem('STREAK_COUNT')) localStorage.setItem('STREAK_COUNT', '0');
     
-    // Hold splash screen for a moment then redirect
     setTimeout(() => {
       router.push('/dashboard');
     }, 3000);
@@ -257,16 +255,16 @@ export default function WelcomeTour() {
 
                 {step.id === 'avatar' && (
                   <div className="w-full pt-8 mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                    <div className="grid grid-cols-4 gap-6 p-6 bg-card rounded-[2rem] border border-border shadow-2xl">
+                    <div className="grid grid-cols-4 gap-4 p-6 bg-card rounded-[2rem] border border-border shadow-2xl">
                       {AVATARS.map((emoji) => (
                         <button
                           key={emoji}
                           onClick={() => setUserAvatar(emoji)}
                           className={cn(
-                            "h-14 w-14 flex items-center justify-center text-2xl rounded-2xl transition-all",
+                            "h-14 w-14 flex items-center justify-center text-2xl rounded-2xl transition-all border border-transparent",
                             userAvatar === emoji 
-                              ? "bg-primary text-white shadow-lg shadow-primary/40 scale-110" 
-                              : "bg-background hover:bg-muted"
+                              ? "bg-primary text-white shadow-lg shadow-primary/40 scale-110 border-primary" 
+                              : "bg-muted/50 hover:bg-muted"
                           )}
                         >
                           {emoji}

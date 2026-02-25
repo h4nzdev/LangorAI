@@ -24,7 +24,7 @@ import { Navigation } from '@/components/navigation';
 
 export default function SettingsPage() {
   const [apiKey, setApiKey] = useState('');
-  const [isDarkMode, setIsDarkMode] = useState(true);
+  const [isDarkMode, setIsDarkMode] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const { toast } = useToast();
 
@@ -33,18 +33,10 @@ export default function SettingsPage() {
     const savedKey = localStorage.getItem('GEMINI_API_KEY');
     if (savedKey) setApiKey(savedKey);
 
-    // Load theme
+    // Load theme from localStorage
     const savedTheme = localStorage.getItem('THEME_MODE');
-    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    
-    const shouldBeDark = savedTheme ? savedTheme === 'dark' : systemPrefersDark;
-    setIsDarkMode(shouldBeDark);
-    
-    if (shouldBeDark) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+    const isDark = savedTheme === 'dark';
+    setIsDarkMode(isDark);
   }, []);
 
   const toggleTheme = (checked: boolean) => {
@@ -98,13 +90,13 @@ export default function SettingsPage() {
             
             <Card className="bg-card border-none shadow-xl">
               <CardHeader className="pb-4">
-                <CardTitle className="text-sm">Dark Mode</CardTitle>
+                <CardTitle className="text-sm">Theme Mode</CardTitle>
                 <CardDescription className="text-xs">
                   Switch between light and dark themes for your workspace.
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="flex items-center justify-between p-4 bg-background/50 rounded-2xl border border-border">
+                <div className="flex items-center justify-between p-4 bg-muted/30 rounded-2xl border border-border">
                   <div className="flex items-center gap-3">
                     {isDarkMode ? (
                       <Moon className="h-5 w-5 text-primary" />
@@ -162,7 +154,7 @@ export default function SettingsPage() {
                     "w-full transition-all duration-300 font-bold gap-2",
                     isSaved 
                       ? "bg-emerald-500 hover:bg-emerald-600 text-white" 
-                      : "bg-primary hover:bg-primary/90 text-primary-foreground"
+                      : "bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20"
                   )}
                 >
                   {isSaved ? (
