@@ -15,7 +15,8 @@ import {
   Plus, 
   Play,
   TrendingUp,
-  Clock
+  Clock,
+  Mic
 } from 'lucide-react';
 import { SidebarProvider, Sidebar, SidebarContent, SidebarHeader, SidebarFooter, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarGroup, SidebarGroupLabel, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 
