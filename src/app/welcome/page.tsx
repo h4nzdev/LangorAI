@@ -1,7 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
-import Link from 'next/link';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,9 +12,11 @@ import {
   ArrowRight, 
   Globe, 
   CheckCircle2,
-  UserCircle2
+  UserCircle2,
+  AlertCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 
 const TOUR_STEPS = [
   {
@@ -57,23 +58,54 @@ const TOUR_STEPS = [
 
 export default function WelcomeTour() {
   const router = useRouter();
+  const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState(0);
   const [userName, setUserName] = useState('');
+  const [isError, setIsError] = useState(false);
+  
   const progress = ((currentStep + 1) / TOUR_STEPS.length) * 100;
   const isLastStep = currentStep === TOUR_STEPS.length - 1;
 
+  // Guard: Redirect if user already exists
+  useEffect(() => {
+    const savedName = localStorage.getItem('USER_NAME');
+    if (savedName) {
+      router.replace('/dashboard');
+    }
+  }, [router]);
+
   const nextStep = () => {
-    if (!isLastStep) {
-      setCurrentStep(prev => prev + 1);
-    } else {
+    if (isLastStep) {
       handleComplete();
+    } else {
+      setCurrentStep(prev => prev + 1);
     }
   };
 
   const handleComplete = () => {
-    const finalName = userName.trim() || 'Hanz';
-    localStorage.setItem('USER_NAME', finalName);
+    const trimmedName = userName.trim();
+    if (!trimmedName) {
+      setIsError(true);
+      toast({
+        variant: "destructive",
+        title: "Name required",
+        description: "Please enter your name to continue.",
+      });
+      return;
+    }
+    
+    localStorage.setItem('USER_NAME', trimmedName);
+    // Initialize stats if they don't exist
+    if (!localStorage.getItem('SESSIONS_COUNT')) localStorage.setItem('SESSIONS_COUNT', '0');
+    if (!localStorage.getItem('TOTAL_MINUTES')) localStorage.setItem('TOTAL_MINUTES', '0');
+    if (!localStorage.getItem('STREAK_COUNT')) localStorage.setItem('STREAK_COUNT', '0');
+    
     router.push('/dashboard');
+  };
+
+  const skipTour = () => {
+    // If skipping, we go to the last step to force name input
+    setCurrentStep(TOUR_STEPS.length - 1);
   };
 
   return (
@@ -84,14 +116,19 @@ export default function WelcomeTour() {
           <Globe className="h-5 w-5 text-primary" />
           <span className="text-sm font-black tracking-tighter uppercase">Langor AI</span>
         </div>
-        <Button variant="ghost" onClick={handleComplete} className="text-muted-foreground hover:text-white text-xs font-bold uppercase tracking-widest">
-          Skip
-        </Button>
+        {!isLastStep && (
+          <Button 
+            variant="ghost" 
+            onClick={skipTour} 
+            className="text-muted-foreground hover:text-white text-xs font-bold uppercase tracking-widest"
+          >
+            Skip
+          </Button>
+        )}
       </header>
 
       <main className="flex-1 flex flex-col items-center justify-center p-6 pb-32">
         <div className="max-w-md w-full relative">
-          {/* Step Content Container */}
           <div className="min-h-[400px] flex flex-col items-center">
             {TOUR_STEPS.map((step, index) => (
               <div 
@@ -122,14 +159,28 @@ export default function WelcomeTour() {
 
                 {step.id === 'onboarding' && (
                   <div className="w-full max-w-xs pt-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                    <Input 
-                      placeholder="Enter your name..." 
-                      value={userName}
-                      onChange={(e) => setUserName(e.target.value)}
-                      className="bg-[#1A2333] border-white/10 h-14 rounded-2xl text-center text-lg focus:ring-primary focus:border-primary shadow-xl"
-                      onKeyDown={(e) => e.key === 'Enter' && nextStep()}
-                      autoFocus
-                    />
+                    <div className="relative">
+                      <Input 
+                        placeholder="Enter your name..." 
+                        value={userName}
+                        onChange={(e) => {
+                          setUserName(e.target.value);
+                          if (isError) setIsError(false);
+                        }}
+                        className={cn(
+                          "bg-[#1A2333] border-white/10 h-14 rounded-2xl text-center text-lg focus:ring-primary focus:border-primary shadow-xl transition-all",
+                          isError && "border-red-500 ring-1 ring-red-500"
+                        )}
+                        onKeyDown={(e) => e.key === 'Enter' && handleComplete()}
+                        autoFocus
+                      />
+                      {isError && (
+                        <div className="absolute -bottom-6 left-0 right-0 flex items-center justify-center gap-1 text-[10px] text-red-500 font-bold uppercase tracking-wider">
+                          <AlertCircle className="h-3 w-3" />
+                          Name is required
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>

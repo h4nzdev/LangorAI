@@ -1,13 +1,23 @@
+'use client';
+
+import React, { useEffect } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { MessageSquare, Mic, Zap, Globe, Bot, Sparkles } from 'lucide-react';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { Globe, Mic, Sparkles, Bot } from 'lucide-react';
 
 export default function Home() {
-  const heroImage = PlaceHolderImages.find(img => img.id === 'ai-tutor');
+  const router = useRouter();
+
+  // Guard: Redirect if user already exists
+  useEffect(() => {
+    const savedName = localStorage.getItem('USER_NAME');
+    if (savedName) {
+      router.replace('/dashboard');
+    }
+  }, [router]);
 
   return (
     <div className="flex flex-col min-h-screen bg-[#0B121F] text-white font-body selection:bg-primary/30">
