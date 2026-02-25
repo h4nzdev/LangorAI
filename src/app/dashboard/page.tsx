@@ -53,9 +53,10 @@ export default function Dashboard() {
     <div className="min-h-screen bg-[#0B121F] text-white flex flex-col font-body">
       {/* Header */}
       <header className="flex items-center justify-between px-6 py-4 max-w-4xl mx-auto w-full">
-        <Avatar className="h-10 w-10 border-2 border-primary/20 bg-[#1A2333] flex items-center justify-center">
-          <User className="h-5 w-5 text-muted-foreground" />
-          <AvatarFallback>HZ</AvatarFallback>
+        <Avatar className="h-10 w-10 border-2 border-primary/20 bg-[#1A2333]">
+          <AvatarFallback className="bg-[#1A2333]">
+            <User className="h-5 w-5 text-muted-foreground" />
+          </AvatarFallback>
         </Avatar>
         <span className="text-xl font-bold tracking-tight">Langor AI</span>
         <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 rounded-xl">

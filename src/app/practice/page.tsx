@@ -194,9 +194,10 @@ export default function PracticeSession() {
             "absolute -inset-1 bg-gradient-to-r from-primary to-blue-400 rounded-full opacity-25 blur transition duration-1000",
             (isListening || isThinking) && "opacity-60 blur-md animate-pulse"
           )} />
-          <Avatar className="h-28 w-28 border-4 border-[#1A2333] shadow-2xl relative bg-[#1A2333] flex items-center justify-center">
-            <Bot className="h-14 w-14 text-primary" />
-            <AvatarFallback>AI</AvatarFallback>
+          <Avatar className="h-28 w-28 border-4 border-[#1A2333] shadow-2xl relative bg-[#1A2333]">
+            <AvatarFallback className="bg-[#1A2333]">
+              <Bot className="h-14 w-14 text-primary" />
+            </AvatarFallback>
           </Avatar>
           <div className={cn(
             "absolute bottom-1 right-2 h-5 w-5 bg-emerald-500 border-4 border-[#0B121F] rounded-full",
