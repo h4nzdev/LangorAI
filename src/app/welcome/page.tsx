@@ -141,9 +141,9 @@ export default function WelcomeTour() {
         )}
       </header>
 
-      <main className="flex-1 flex flex-col items-center justify-center p-6 pb-32">
+      <main className="flex-1 flex flex-col items-center justify-center p-6 pb-40">
         <div className="max-w-md w-full relative">
-          <div className="min-h-[450px] flex flex-col items-center">
+          <div className="min-h-[500px] flex flex-col items-center">
             {TOUR_STEPS.map((step, index) => (
               <div 
                 key={step.id}
@@ -172,7 +172,7 @@ export default function WelcomeTour() {
                 </div>
 
                 {step.id === 'onboarding' && (
-                  <div className="w-full max-w-xs pt-4">
+                  <div className="w-full max-w-xs pt-8 mb-8">
                     <div className="relative">
                       <Input 
                         placeholder="Enter your name..." 
@@ -199,8 +199,8 @@ export default function WelcomeTour() {
                 )}
 
                 {step.id === 'avatar' && (
-                  <div className="w-full pt-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                    <div className="grid grid-cols-4 gap-4 p-4 bg-[#1A2333] rounded-[2rem] border border-white/5 shadow-2xl">
+                  <div className="w-full pt-8 mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                    <div className="grid grid-cols-4 gap-6 p-6 bg-[#1A2333] rounded-[2rem] border border-white/5 shadow-2xl">
                       {AVATARS.map((emoji) => (
                         <button
                           key={emoji}
