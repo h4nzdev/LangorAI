@@ -111,7 +111,7 @@ export default function PracticeSession() {
           className="h-14 rounded-2xl flex flex-col gap-1 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 text-red-500 group"
           asChild
         >
-          <Link href="/dashboard">
+          <Link href="/practice/analysis">
             <PhoneOff className="h-5 w-5 group-hover:scale-110 transition-transform" />
             <span className="text-[9px] font-black tracking-widest uppercase">End Session</span>
           </Link>
