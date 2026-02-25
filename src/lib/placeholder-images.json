@@ -13,16 +13,28 @@
       "imageHint": "artificial intelligence"
     },
     {
-      "id": "conversation",
-      "description": "Close up of a person speaking into a smartphone with visual sound waves",
-      "imageUrl": "https://images.unsplash.com/photo-1681569685389-4c32d54f4db5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxzcGVha2luZyUyMGNvbnZlcnNhdGlvbnxlbnwwfHx8fDE3NzIwMjEwMTJ8MA&ixlib=rb-4.1.0&q=80&w=1080",
-      "imageHint": "speaking conversation"
+      "id": "job-interview",
+      "description": "Professional meeting scenario",
+      "imageUrl": "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxqY2IlMjBpbnRlcnZpZXd8ZW58MHx8fHwxNzcyMDIxMDEyfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "professional meeting"
     },
     {
-      "id": "progress",
-      "description": "Modern analytics dashboard showing language learning progress",
-      "imageUrl": "https://images.unsplash.com/photo-1554350747-ec45fd24f51b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxhbmFseXRpY3MlMjBwcm9ncmVzc3xlbnwwfHx8fDE3NzIwMjEwMTJ8MA&ixlib=rb-4.1.0&q=80&w=1080",
-      "imageHint": "analytics progress"
+      "id": "grammar-books",
+      "description": "Stack of educational books",
+      "imageUrl": "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxlZHVjYXRpb24lMjBib29rc3xlbnwwfHx8fDE3NzIwMjEwMTJ8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "education books"
+    },
+    {
+      "id": "small-talk",
+      "description": "People chatting in a friendly environment",
+      "imageUrl": "https://images.unsplash.com/photo-1543269865-cbf427effbad?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxmcmllbmRzJTIwY2hhdHRpbmdfZW58MHx8fHwxNzcyMDIxMDEyfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "friends chatting"
+    },
+    {
+      "id": "presentation",
+      "description": "A person giving a professional pitch",
+      "imageUrl": "https://images.unsplash.com/photo-1551836022-dbe61330e87b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxwcmVzZW50YXRpb24lMjBwaXRjaHxlbnwwfHx8fDE3NzIwMjEwMTJ8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "presentation pitch"
     }
   ]
 }

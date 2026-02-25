@@ -1,224 +1,178 @@
+
 'use client';
 
+import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { 
-  Flame, 
-  BookOpen, 
-  MessageCircle, 
-  Trophy, 
-  Settings, 
-  LogOut, 
-  Plus, 
-  Play,
-  TrendingUp,
-  Clock,
-  Mic
+  Bell, 
+  Mic, 
+  Home, 
+  MessageSquare, 
+  BarChart3, 
+  Settings,
+  Plus,
+  TrendingUp
 } from 'lucide-react';
-import { SidebarProvider, Sidebar, SidebarContent, SidebarHeader, SidebarFooter, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarGroup, SidebarGroupLabel, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
+import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { cn } from '@/lib/utils';
 
 export default function Dashboard() {
+  const recommendations = [
+    {
+      id: 'job-interview',
+      title: 'Job Interview Prep',
+      meta: '15 mins • 40 points',
+      image: PlaceHolderImages.find(img => img.id === 'job-interview')?.imageUrl
+    },
+    {
+      id: 'grammar-books',
+      title: 'Grammar Refinement',
+      meta: '10 mins • 25 points',
+      image: PlaceHolderImages.find(img => img.id === 'grammar-books')?.imageUrl
+    },
+    {
+      id: 'small-talk',
+      title: 'Small Talk Mastery',
+      meta: '20 mins • 50 points',
+      image: PlaceHolderImages.find(img => img.id === 'small-talk')?.imageUrl
+    },
+    {
+      id: 'presentation',
+      title: 'Executive Pitch',
+      meta: '12 mins • 35 points',
+      image: PlaceHolderImages.find(img => img.id === 'presentation')?.imageUrl
+    },
+  ];
+
   return (
-    <SidebarProvider>
-      <div className="flex min-h-screen w-full">
-        <Sidebar variant="inset" collapsible="icon">
-          <SidebarHeader>
-            <div className="flex items-center gap-2 px-2 py-4">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                <span className="font-bold">L</span>
+    <div className="min-h-screen bg-[#0B121F] text-white flex flex-col font-body">
+      {/* Header */}
+      <header className="flex items-center justify-between px-6 py-4 max-w-4xl mx-auto w-full">
+        <Avatar className="h-10 w-10 border-2 border-primary/20">
+          <AvatarImage src="https://picsum.photos/seed/alex/100/100" />
+          <AvatarFallback>AX</AvatarFallback>
+        </Avatar>
+        <span className="text-xl font-bold tracking-tight">Langor AI</span>
+        <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 rounded-xl">
+          <Bell className="h-6 w-6" />
+        </Button>
+      </header>
+
+      <main className="flex-1 overflow-auto pb-24">
+        <div className="max-w-4xl mx-auto px-6 space-y-8">
+          {/* Welcome Section */}
+          <div className="space-y-1">
+            <h1 className="text-3xl font-bold">Welcome back, Alex!</h1>
+            <p className="text-muted-foreground text-sm">Ready to boost your speaking confidence?</p>
+          </div>
+
+          {/* Confidence Level Card */}
+          <Card className="bg-[#1A2333] border-none text-white shadow-xl">
+            <CardContent className="p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="bg-primary/20 p-2 rounded-lg">
+                    <BarChart3 className="h-5 w-5 text-primary" />
+                  </div>
+                  <span className="font-semibold">Confidence Level</span>
+                </div>
+                <span className="text-2xl font-bold text-primary">75%</span>
               </div>
-              <span className="text-xl font-bold group-data-[collapsible=icon]:hidden">Langor AI</span>
-            </div>
-          </SidebarHeader>
-          <SidebarContent>
-            <SidebarGroup>
-              <SidebarGroupLabel>Main</SidebarGroupLabel>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton isActive tooltip="Dashboard">
-                    <TrendingUp className="h-4 w-4" />
-                    <span>Overview</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton tooltip="Practice">
-                    <MessageCircle className="h-4 w-4" />
-                    <span>Practice Chat</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton tooltip="Lessons">
-                    <BookOpen className="h-4 w-4" />
-                    <span>Curriculum</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton tooltip="Achievements">
-                    <Trophy className="h-4 w-4" />
-                    <span>Achievements</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroup>
-          </SidebarContent>
-          <SidebarFooter>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton tooltip="Settings">
-                  <Settings className="h-4 w-4" />
-                  <span>Settings</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton className="text-destructive" tooltip="Logout">
-                  <LogOut className="h-4 w-4" />
-                  <span>Logout</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarFooter>
-        </Sidebar>
+              <Progress value={75} className="h-2.5 bg-white/5" />
+              <div className="flex items-center justify-between text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
+                <span>Advanced Intermediate</span>
+                <span className="text-primary">+5% this week</span>
+              </div>
+            </CardContent>
+          </Card>
 
-        <SidebarInset>
-          <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-            <SidebarTrigger className="-ml-1" />
-            <div className="flex items-center gap-2 ml-4">
-              <Badge variant="outline" className="flex items-center gap-1 font-bold text-orange-600 border-orange-200 bg-orange-50">
-                <Flame className="h-3 w-3 fill-orange-600" />
-                12 Day Streak
-              </Badge>
+          {/* Start AI Session CTA */}
+          <Button className="w-full h-16 rounded-2xl bg-[#1D7AFC] hover:bg-[#1D7AFC]/90 text-white text-lg font-bold gap-3 shadow-lg shadow-blue-500/20">
+            <div className="bg-white/20 p-1.5 rounded-full">
+              <Mic className="h-6 w-6 fill-current" />
             </div>
-            <div className="ml-auto flex items-center gap-4">
-              <Button size="sm" variant="outline">
-                Change Language: <span className="font-bold ml-1">Spanish 🇪🇸</span>
-              </Button>
-            </div>
-          </header>
+            Start AI Session
+          </Button>
 
-          <main className="flex-1 overflow-auto p-6 md:p-8">
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                  <CardTitle className="text-sm font-medium">Daily Goal</CardTitle>
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">15 / 20m</div>
-                  <Progress value={75} className="mt-2" />
-                  <p className="text-xs text-muted-foreground mt-2">5 more minutes to keep your streak!</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                  <CardTitle className="text-sm font-medium">Fluency Score</CardTitle>
-                  <TrendingUp className="h-4 w-4 text-primary" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">A2 Upper</div>
-                  <p className="text-xs text-muted-foreground mt-1">+4% from last week</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                  <CardTitle className="text-sm font-medium">Words Learned</CardTitle>
-                  <BookOpen className="h-4 w-4 text-accent" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">1,245</div>
-                  <p className="text-xs text-muted-foreground mt-1">24 new today</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                  <CardTitle className="text-sm font-medium">Rank</CardTitle>
-                  <Trophy className="h-4 w-4 text-yellow-500" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">Silver League</div>
-                  <p className="text-xs text-muted-foreground mt-1">Top 15% of learners</p>
-                </CardContent>
-              </Card>
+          {/* Daily Progress */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold">Daily Progress</h2>
+              <Button variant="link" className="text-primary text-xs font-bold p-0">Weekly View</Button>
             </div>
+            <div className="flex items-end justify-between px-2 h-20 gap-2">
+              {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, i) => (
+                <div key={day} className="flex flex-col items-center gap-2 flex-1">
+                  <div 
+                    className={cn(
+                      "w-full rounded-t-sm transition-all",
+                      i < 5 ? "bg-primary/40 h-8" : "bg-primary h-12 shadow-[0_0_15px_rgba(29,122,252,0.3)]",
+                      i === 4 && "h-10"
+                    )} 
+                  />
+                  <span className="text-[10px] font-bold text-muted-foreground">{day}</span>
+                </div>
+              ))}
+            </div>
+          </div>
 
-            <div className="grid gap-6 mt-6 lg:grid-cols-7">
-              <Card className="lg:col-span-4">
-                <CardHeader>
-                  <CardTitle>Recommended Practice</CardTitle>
-                  <CardDescription>Based on your recent mistakes and goals.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between p-4 rounded-lg border bg-blue-50/50">
-                    <div className="flex items-center gap-4">
-                      <div className="p-2 bg-primary/10 rounded-full text-primary">
-                        <MessageCircle className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <div className="font-bold">At the Restaurant</div>
-                        <div className="text-sm text-muted-foreground">Practice ordering and small talk</div>
-                      </div>
+          {/* Recommended for You */}
+          <div className="space-y-4 pb-4">
+            <h2 className="text-xl font-bold">Recommended for You</h2>
+            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {recommendations.map((item) => (
+                <Link key={item.id} href="/practice" className="block">
+                  <Card className="bg-[#1A2333] border-none overflow-hidden hover:ring-2 ring-primary/50 transition-all cursor-pointer shadow-lg group">
+                    <div className="relative aspect-video w-full overflow-hidden">
+                      {item.image && (
+                        <Image 
+                          src={item.image} 
+                          alt={item.title} 
+                          fill 
+                          className="object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-[#1A2333] to-transparent opacity-60" />
                     </div>
-                    <Button size="sm" asChild>
-                      <Link href="/practice">
-                        <Play className="h-3 w-3 mr-1 fill-current" /> Start
-                      </Link>
-                    </Button>
-                  </div>
-                  <div className="flex items-center justify-between p-4 rounded-lg border">
-                    <div className="flex items-center gap-4">
-                      <div className="p-2 bg-accent/10 rounded-full text-accent">
-                        <Mic className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <div className="font-bold">The Subjunctive Mood</div>
-                        <div className="text-sm text-muted-foreground">Focus on advanced grammar</div>
-                      </div>
-                    </div>
-                    <Button size="sm" variant="outline">Start</Button>
-                  </div>
-                  <div className="flex items-center justify-between p-4 rounded-lg border">
-                    <div className="flex items-center gap-4">
-                      <div className="p-2 bg-purple-500/10 rounded-full text-purple-600">
-                        <Plus className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <div className="font-bold">Custom Scenario</div>
-                        <div className="text-sm text-muted-foreground">Describe a scene you want to practice</div>
-                      </div>
-                    </div>
-                    <Button size="sm" variant="outline">Create</Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="lg:col-span-3">
-                <CardHeader>
-                  <CardTitle>Recent Activity</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {[
-                      { title: 'Job Interview Prep', time: '2 hours ago', score: '85%' },
-                      { title: 'Vocabulary Quiz', time: 'Yesterday', score: '100%' },
-                      { title: 'Airport Scenario', time: '2 days ago', score: '92%' },
-                    ].map((item, idx) => (
-                      <div key={idx} className="flex items-center justify-between py-2 border-b last:border-0">
-                        <div>
-                          <div className="font-medium">{item.title}</div>
-                          <div className="text-xs text-muted-foreground">{item.time}</div>
-                        </div>
-                        <Badge variant="secondary">{item.score}</Badge>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+                    <CardContent className="p-3 space-y-1">
+                      <h3 className="font-bold text-sm leading-tight text-white">{item.title}</h3>
+                      <p className="text-[10px] text-muted-foreground">{item.meta}</p>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
             </div>
-          </main>
-        </SidebarInset>
-      </div>
-    </SidebarProvider>
+          </div>
+        </div>
+      </main>
+
+      {/* Bottom Navigation */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-[#0B121F]/80 backdrop-blur-lg border-t border-white/5 px-6 py-3 z-50">
+        <div className="max-w-4xl mx-auto flex items-center justify-between">
+          <NavItem icon={<Home className="h-6 w-6" />} label="Home" active />
+          <NavItem icon={<MessageSquare className="h-6 w-6" />} label="Practice" />
+          <NavItem icon={<TrendingUp className="h-6 w-6" />} label="Insights" />
+          <NavItem icon={<Settings className="h-6 w-6" />} label="Settings" />
+        </div>
+      </nav>
+    </div>
+  );
+}
+
+function NavItem({ icon, label, active = false }: { icon: React.ReactNode, label: string, active?: boolean }) {
+  return (
+    <button className={cn(
+      "flex flex-col items-center gap-1 transition-colors",
+      active ? "text-primary font-bold" : "text-muted-foreground hover:text-white"
+    )}>
+      {icon}
+      <span className="text-[10px]">{label}</span>
+    </button>
   );
 }
