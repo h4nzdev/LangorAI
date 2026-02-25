@@ -3,10 +3,11 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
 import { 
   ChevronLeft, 
   User, 
@@ -18,7 +19,11 @@ import {
   Globe,
   LogOut,
   Save,
-  CheckCircle2
+  CheckCircle2,
+  Home,
+  MessageSquare,
+  BarChart3,
+  Settings as SettingsIcon
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -226,7 +231,7 @@ export default function ProfilePage() {
         </section>
       </main>
 
-      {/* Bottom Navigation (Reused) */}
+      {/* Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 bg-[#0B121F]/80 backdrop-blur-lg border-t border-white/5 px-6 py-3 z-50">
         <div className="max-w-xl mx-auto flex items-center justify-between">
           <Link href="/dashboard" className="flex flex-col items-center gap-1 transition-colors text-muted-foreground hover:text-white">
