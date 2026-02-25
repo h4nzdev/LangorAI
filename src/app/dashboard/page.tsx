@@ -24,7 +24,7 @@ export default function Dashboard() {
   const [stats, setStats] = useState({
     streak: 0,
     sessions: 0,
-    confidence: 65
+    confidence: 0
   });
 
   useEffect(() => {
@@ -38,8 +38,9 @@ export default function Dashboard() {
     const streak = parseInt(localStorage.getItem('STREAK_COUNT') || '0');
     const sessions = parseInt(localStorage.getItem('SESSIONS_COUNT') || '0');
     
-    // Simple confidence logic: base + 2% per session, capped at 98%
-    const calculatedConfidence = Math.min(65 + (sessions * 2), 98);
+    // Simple confidence logic: starts at 0 as requested.
+    // Grows by 5% per session, capped at 100%
+    const calculatedConfidence = Math.min(sessions * 5, 100);
 
     setStats({
       streak,
@@ -47,6 +48,14 @@ export default function Dashboard() {
       confidence: calculatedConfidence
     });
   }, []);
+
+  const getLevelLabel = (confidence: number) => {
+    if (confidence === 0) return "New Learner";
+    if (confidence < 30) return "Beginner";
+    if (confidence < 60) return "Intermediate";
+    if (confidence < 90) return "Advanced";
+    return "Fluent";
+  };
 
   const recommendations = [
     {
@@ -131,8 +140,8 @@ export default function Dashboard() {
                   </div>
                   <Progress value={stats.confidence} className="h-2.5 bg-white/5" />
                   <div className="flex items-center justify-between text-[10px] font-black tracking-wider text-muted-foreground uppercase">
-                    <span>Advanced Intermediate</span>
-                    <span className="text-primary">Goal: 95%</span>
+                    <span>{getLevelLabel(stats.confidence)}</span>
+                    <span className="text-primary">Goal: 100%</span>
                   </div>
                 </CardContent>
               </Card>
