@@ -2,8 +2,9 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { 
   Mic, 
@@ -11,7 +12,8 @@ import {
   ShieldCheck, 
   ArrowRight, 
   Globe, 
-  CheckCircle2 
+  CheckCircle2,
+  UserCircle2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -43,18 +45,35 @@ const TOUR_STEPS = [
     description: 'Your conversations and API keys are stored locally in your browser. No accounts, no tracking, total control.',
     icon: <ShieldCheck className="h-12 w-12 text-purple-400" />,
     color: 'from-purple-500/20 to-transparent'
+  },
+  {
+    id: 'onboarding',
+    title: 'One last thing...',
+    description: 'What should we call you? We love to be on a first-name basis!',
+    icon: <UserCircle2 className="h-12 w-12 text-primary" />,
+    color: 'from-blue-500/20 to-transparent'
   }
 ];
 
 export default function WelcomeTour() {
+  const router = useRouter();
   const [currentStep, setCurrentStep] = useState(0);
+  const [userName, setUserName] = useState('');
   const progress = ((currentStep + 1) / TOUR_STEPS.length) * 100;
   const isLastStep = currentStep === TOUR_STEPS.length - 1;
 
   const nextStep = () => {
     if (!isLastStep) {
       setCurrentStep(prev => prev + 1);
+    } else {
+      handleComplete();
     }
+  };
+
+  const handleComplete = () => {
+    const finalName = userName.trim() || 'Hanz';
+    localStorage.setItem('USER_NAME', finalName);
+    router.push('/dashboard');
   };
 
   return (
@@ -65,8 +84,8 @@ export default function WelcomeTour() {
           <Globe className="h-5 w-5 text-primary" />
           <span className="text-sm font-black tracking-tighter uppercase">Langor AI</span>
         </div>
-        <Button variant="ghost" asChild className="text-muted-foreground hover:text-white text-xs font-bold uppercase tracking-widest">
-          <Link href="/dashboard">Skip</Link>
+        <Button variant="ghost" onClick={handleComplete} className="text-muted-foreground hover:text-white text-xs font-bold uppercase tracking-widest">
+          Skip
         </Button>
       </header>
 
@@ -99,6 +118,19 @@ export default function WelcomeTour() {
                     {step.description}
                   </p>
                 </div>
+
+                {step.id === 'onboarding' && (
+                  <div className="w-full max-w-xs pt-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                    <Input 
+                      placeholder="Enter your name..." 
+                      value={userName}
+                      onChange={(e) => setUserName(e.target.value)}
+                      className="bg-[#1A2333] border-white/10 h-14 rounded-2xl text-center text-lg focus:ring-primary focus:border-primary"
+                      onKeyDown={(e) => e.key === 'Enter' && nextStep()}
+                      autoFocus
+                    />
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -118,22 +150,27 @@ export default function WelcomeTour() {
           </div>
 
           {/* Action Button */}
-          {isLastStep ? (
-            <Button asChild className="w-full h-16 rounded-2xl bg-[#1D7AFC] hover:bg-[#1D7AFC]/90 text-white text-lg font-bold gap-3 shadow-xl shadow-blue-500/25 group">
-              <Link href="/dashboard">
+          <Button 
+            onClick={nextStep}
+            className={cn(
+              "w-full h-16 rounded-2xl text-lg font-bold gap-3 group transition-all",
+              isLastStep 
+                ? "bg-[#1D7AFC] hover:bg-[#1D7AFC]/90 text-white shadow-xl shadow-blue-500/25" 
+                : "bg-white text-black hover:bg-white/90"
+            )}
+          >
+            {isLastStep ? (
+              <>
                 Let's Start Speaking
                 <CheckCircle2 className="h-5 w-5 group-hover:scale-110 transition-transform" />
-              </Link>
-            </Button>
-          ) : (
-            <Button 
-              onClick={nextStep}
-              className="w-full h-16 rounded-2xl bg-white text-black hover:bg-white/90 text-lg font-bold gap-3 group"
-            >
-              Continue
-              <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
-            </Button>
-          )}
+              </>
+            ) : (
+              <>
+                Continue
+                <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+              </>
+            )}
+          </Button>
         </div>
       </footer>
     </div>

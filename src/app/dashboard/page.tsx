@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -22,6 +22,15 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { cn } from '@/lib/utils';
 
 export default function Dashboard() {
+  const [userName, setUserName] = useState('Hanz');
+
+  useEffect(() => {
+    const savedName = localStorage.getItem('USER_NAME');
+    if (savedName) {
+      setUserName(savedName);
+    }
+  }, []);
+
   const recommendations = [
     {
       id: 'job-interview',
@@ -68,7 +77,7 @@ export default function Dashboard() {
         <div className="max-w-4xl mx-auto px-6 space-y-8">
           {/* Welcome Section */}
           <div className="space-y-1">
-            <h1 className="text-3xl font-bold">Welcome back, Hanz!</h1>
+            <h1 className="text-3xl font-bold">Welcome back, {userName}!</h1>
             <p className="text-muted-foreground text-sm">Ready to boost your speaking confidence?</p>
           </div>
 
