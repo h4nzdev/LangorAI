@@ -93,7 +93,7 @@ export default function Home() {
             <Card className="bg-gradient-to-br from-[#1A2333] to-[#0B121F] border border-white/5 rounded-[3rem] p-8 md:p-16 text-center relative overflow-hidden group">
               <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
               <div className="relative z-10 space-y-8">
-                <h2 className="text-3xl md:text-5xl font-black tracking-tight">
+                <h2 className="text-3xl md:text-5xl font-black tracking-tight text-white">
                   Ready to reach <span className="text-primary">fluency?</span>
                 </h2>
                 <p className="text-muted-foreground text-lg max-w-md mx-auto font-medium">
