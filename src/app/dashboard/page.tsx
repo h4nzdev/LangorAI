@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { 
   Bell, 
   Mic, 
@@ -15,7 +15,8 @@ import {
   MessageSquare, 
   BarChart3, 
   Settings as SettingsIcon,
-  TrendingUp
+  TrendingUp,
+  User
 } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { cn } from '@/lib/utils';
@@ -52,8 +53,8 @@ export default function Dashboard() {
     <div className="min-h-screen bg-[#0B121F] text-white flex flex-col font-body">
       {/* Header */}
       <header className="flex items-center justify-between px-6 py-4 max-w-4xl mx-auto w-full">
-        <Avatar className="h-10 w-10 border-2 border-primary/20">
-          <AvatarImage src="https://picsum.photos/seed/hanz/100/100" />
+        <Avatar className="h-10 w-10 border-2 border-primary/20 bg-[#1A2333] flex items-center justify-center">
+          <User className="h-5 w-5 text-muted-foreground" />
           <AvatarFallback>HZ</AvatarFallback>
         </Avatar>
         <span className="text-xl font-bold tracking-tight">Langor AI</span>

@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { 
   ChevronLeft, 
@@ -13,12 +13,11 @@ import {
   FileText, 
   PhoneOff, 
   Sparkles,
-  ArrowRight,
   Loader2,
   AlertCircle,
-  Settings
+  Settings,
+  Bot
 } from 'lucide-react';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { cn } from '@/lib/utils';
 import { startPracticeSession, summarizeSession, type PracticeOutput } from '@/ai/flows/practice-flow';
 
@@ -50,7 +49,6 @@ export default function PracticeSession() {
   const [errorStatus, setErrorStatus] = useState<'none' | 'generic' | 'api-key'>('none');
   
   const recognitionRef = useRef<SpeechRecognition | null>(null);
-  const aiAvatar = PlaceHolderImages.find(img => img.id === 'langor-ai')?.imageUrl;
 
   useEffect(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -196,8 +194,8 @@ export default function PracticeSession() {
             "absolute -inset-1 bg-gradient-to-r from-primary to-blue-400 rounded-full opacity-25 blur transition duration-1000",
             (isListening || isThinking) && "opacity-60 blur-md animate-pulse"
           )} />
-          <Avatar className="h-28 w-28 border-4 border-[#1A2333] shadow-2xl relative">
-            <AvatarImage src={aiAvatar} alt="Langor AI" className="object-cover" />
+          <Avatar className="h-28 w-28 border-4 border-[#1A2333] shadow-2xl relative bg-[#1A2333] flex items-center justify-center">
+            <Bot className="h-14 w-14 text-primary" />
             <AvatarFallback>AI</AvatarFallback>
           </Avatar>
           <div className={cn(
