@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -12,14 +12,105 @@ import {
   FileText, 
   PhoneOff, 
   Sparkles,
-  ArrowRight
+  ArrowRight,
+  Loader2
 } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { cn } from '@/lib/utils';
+import { startPracticeSession, type PracticeOutput } from '@/ai/flows/practice-flow';
+
+// Mock Web Speech API types for TypeScript
+interface SpeechRecognitionEvent extends Event {
+  results: SpeechRecognitionResultList;
+}
+
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start(): void;
+  stop(): void;
+  onresult: (event: SpeechRecognitionEvent) => void;
+  onend: () => void;
+  onerror: (event: any) => void;
+}
 
 export default function PracticeSession() {
   const [isMuted, setIsMuted] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [isThinking, setIsThinking] = useState(false);
+  const [transcript, setTranscript] = useState("Click the mic to start speaking...");
+  const [feedback, setFeedback] = useState<PracticeOutput['feedback'] | null>(null);
+  const [aiResponseText, setAiResponseText] = useState("Hi! I'm Langor AI. What hobbies do you enjoy?");
+  
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
   const aiAvatar = PlaceHolderImages.find(img => img.id === 'langor-ai')?.imageUrl;
+
+  // Initialize Speech Recognition
+  useEffect(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = 'en-US';
+
+      recognition.onresult = async (event: SpeechRecognitionEvent) => {
+        const userText = event.results[0][0].transcript;
+        setTranscript(userText);
+        handleUserSpeech(userText);
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognition.onerror = () => {
+        setIsListening(false);
+        setTranscript("Error: Try again.");
+      };
+
+      recognitionRef.current = recognition;
+    }
+  }, []);
+
+  const toggleListening = () => {
+    if (isListening) {
+      recognitionRef.current?.stop();
+    } else {
+      setIsListening(true);
+      setTranscript("Listening...");
+      recognitionRef.current?.start();
+    }
+  };
+
+  const handleUserSpeech = async (text: string) => {
+    setIsThinking(true);
+    try {
+      const result = await startPracticeSession({ userInput: text });
+      setAiResponseText(result.aiResponse);
+      setFeedback(result.feedback);
+      
+      // AI speaks the response
+      speakText(result.aiResponse);
+    } catch (error) {
+      console.error("AI Error:", error);
+      setTranscript("Sorry, I had trouble thinking. Try again?");
+    } finally {
+      setIsThinking(false);
+    }
+  };
+
+  const speakText = (text: string) => {
+    if ('speechSynthesis' in window) {
+      // Cancel any ongoing speech
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 1;
+      utterance.pitch = 1;
+      window.speechSynthesis.speak(utterance);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#0B121F] text-white flex flex-col font-body selection:bg-primary/30">
@@ -31,7 +122,7 @@ export default function PracticeSession() {
           </Link>
         </Button>
         <div className="flex flex-col items-center">
-          <h1 className="text-sm font-bold tracking-tight">Discussing Hobbies</h1>
+          <h1 className="text-sm font-bold tracking-tight text-center">Discussing Hobbies</h1>
           <span className="text-[10px] text-primary font-bold tracking-widest uppercase">Session Level: Intermediate</span>
         </div>
         <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 rounded-full">
@@ -40,66 +131,107 @@ export default function PracticeSession() {
       </header>
 
       {/* Main Session Content */}
-      <main className="flex-1 flex flex-col items-center justify-center px-6 gap-12">
+      <main className="flex-1 flex flex-col items-center justify-center px-6 gap-8">
         {/* AI Avatar */}
         <div className="relative group">
-          <div className="absolute -inset-1 bg-gradient-to-r from-primary to-blue-400 rounded-full opacity-25 blur transition duration-1000 group-hover:duration-200" />
+          <div className={cn(
+            "absolute -inset-1 bg-gradient-to-r from-primary to-blue-400 rounded-full opacity-25 blur transition duration-1000",
+            (isListening || isThinking) && "opacity-60 blur-md animate-pulse"
+          )} />
           <Avatar className="h-28 w-28 border-4 border-[#1A2333] shadow-2xl relative">
             <AvatarImage src={aiAvatar} alt="Langor AI" className="object-cover" />
             <AvatarFallback>AI</AvatarFallback>
           </Avatar>
-          <div className="absolute bottom-1 right-2 h-5 w-5 bg-emerald-500 border-4 border-[#0B121F] rounded-full" />
+          <div className={cn(
+            "absolute bottom-1 right-2 h-5 w-5 bg-emerald-500 border-4 border-[#0B121F] rounded-full",
+            isThinking && "bg-blue-400 animate-bounce"
+          )} />
         </div>
 
         <div className="text-center space-y-2">
           <h2 className="text-2xl font-bold tracking-tight">Langor AI</h2>
-          <p className="text-[#1D7AFC] text-xs font-black tracking-[0.2em] uppercase animate-pulse">Listening...</p>
+          {isListening ? (
+            <p className="text-[#1D7AFC] text-xs font-black tracking-[0.2em] uppercase animate-pulse">Listening...</p>
+          ) : isThinking ? (
+            <p className="text-primary text-xs font-black tracking-[0.2em] uppercase">Thinking...</p>
+          ) : (
+            <p className="text-muted-foreground text-xs font-black tracking-[0.2em] uppercase">Ready</p>
+          )}
         </div>
 
         {/* Voice Interface / Pulse */}
-        <div className="relative flex items-center justify-center w-full h-64">
-          {/* Concentric Pulse Rings */}
-          <div className="absolute w-48 h-48 border border-primary/10 rounded-full animate-ping [animation-duration:3s]" />
-          <div className="absolute w-64 h-64 border border-primary/5 rounded-full animate-ping [animation-duration:4s]" />
-          <div className="absolute w-80 h-80 border border-primary/5 rounded-full animate-ping [animation-duration:5s]" />
+        <div className="relative flex items-center justify-center w-full h-48">
+          {/* Concentric Pulse Rings - Only show when active */}
+          {isListening && (
+            <>
+              <div className="absolute w-48 h-48 border border-primary/10 rounded-full animate-ping [animation-duration:2s]" />
+              <div className="absolute w-64 h-64 border border-primary/5 rounded-full animate-ping [animation-duration:3s]" />
+            </>
+          )}
           
           <Button 
             size="icon" 
-            className="h-20 w-20 rounded-full bg-[#1D7AFC] hover:bg-[#1D7AFC]/90 shadow-[0_0_30px_rgba(29,122,252,0.4)] z-10"
+            onClick={toggleListening}
+            disabled={isThinking}
+            className={cn(
+              "h-24 w-24 rounded-full transition-all duration-300 shadow-2xl z-10",
+              isListening ? "bg-red-500 hover:bg-red-600 scale-110" : "bg-[#1D7AFC] hover:bg-[#1D7AFC]/90",
+              isThinking && "opacity-50 cursor-not-allowed"
+            )}
           >
-            <Mic className="h-8 w-8 text-white fill-current" />
+            {isThinking ? (
+              <Loader2 className="h-10 w-10 text-white animate-spin" />
+            ) : isListening ? (
+              <MicOff className="h-10 w-10 text-white fill-current" />
+            ) : (
+              <Mic className="h-10 w-10 text-white fill-current" />
+            )}
           </Button>
         </div>
 
-        {/* Live Transcription */}
-        <div className="max-w-xs text-center">
+        {/* AI Response Display */}
+        <div className="max-w-xs text-center min-h-[4rem]">
+          <p className="text-lg font-medium text-white/90 leading-tight">
+            "{aiResponseText}"
+          </p>
+        </div>
+
+        {/* User Transcript */}
+        <div className="max-w-xs text-center border-t border-white/5 pt-4">
           <p className="text-sm text-primary/80 leading-relaxed italic font-medium">
-            "I really like play soccer every weekend with my friends at the park."
+            "{transcript}"
           </p>
         </div>
 
         {/* Live Feedback Card */}
-        <div className="w-full max-w-sm bg-[#1A2333]/80 backdrop-blur-md border border-white/5 rounded-3xl p-5 shadow-2xl space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary/20 rounded-xl">
-              <Sparkles className="h-4 w-4 text-primary" />
+        {feedback && feedback.hasCorrection && (
+          <div className="w-full max-w-sm bg-[#1A2333]/80 backdrop-blur-md border border-white/5 rounded-3xl p-5 shadow-2xl space-y-4 animate-in slide-in-from-bottom-4 duration-500">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-primary/20 rounded-xl">
+                <Sparkles className="h-4 w-4 text-primary" />
+              </div>
+              <h3 className="font-bold text-sm">Live Feedback</h3>
             </div>
-            <h3 className="font-bold text-sm">Live Feedback</h3>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Instead of <span className="text-red-400 font-bold">"{feedback.originalText}"</span>, try <span className="text-emerald-400 font-bold">"{feedback.correctedText}"</span>.
+            </p>
+            {feedback.explanation && (
+              <p className="text-[10px] text-muted-foreground italic">
+                {feedback.explanation}
+              </p>
+            )}
+            <button className="text-[10px] font-black text-primary uppercase tracking-widest flex items-center gap-2 hover:opacity-80 transition-opacity">
+              Grammar Tip <ArrowRight className="h-3 w-3" />
+            </button>
           </div>
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            Instead of <span className="text-red-400 font-bold">"I like play"</span>, try <span className="text-emerald-400 font-bold">"I enjoy playing"</span> for better fluency and natural flow.
-          </p>
-          <button className="text-[10px] font-black text-primary uppercase tracking-widest flex items-center gap-2 hover:opacity-80 transition-opacity">
-            Grammar Tip <ArrowRight className="h-3 w-3" />
-          </button>
-        </div>
+        )}
       </main>
 
       {/* Footer Controls */}
       <footer className="p-6 max-w-xl mx-auto w-full grid grid-cols-3 gap-4 pb-10">
         <ControlBtn 
           icon={isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />} 
-          label="MUTE" 
+          label={isMuted ? "UNMUTE" : "MUTE"} 
           onClick={() => setIsMuted(!isMuted)} 
         />
         <ControlBtn 
