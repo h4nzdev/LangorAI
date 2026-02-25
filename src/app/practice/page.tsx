@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -15,7 +16,8 @@ import {
   Sparkles,
   ArrowRight,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  Settings
 } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { cn } from '@/lib/utils';
@@ -90,8 +92,15 @@ export default function PracticeSession() {
   const handleUserSpeech = async (text: string) => {
     setIsThinking(true);
     setErrorStatus('none');
+    
+    // Check for user-provided API key in localStorage
+    const savedApiKey = localStorage.getItem('GEMINI_API_KEY') || undefined;
+
     try {
-      const result = await startPracticeSession({ userInput: text });
+      const result = await startPracticeSession({ 
+        userInput: text,
+        apiKey: savedApiKey
+      });
       setAiResponseText(result.aiResponse);
       setFeedback(result.feedback);
       
@@ -100,7 +109,7 @@ export default function PracticeSession() {
     } catch (error: any) {
       console.error("AI Error:", error);
       
-      // Check if it's likely an API key issue (common in this environment)
+      // Check if it's likely an API key issue
       if (error.message?.includes('API_KEY') || error.message?.includes('401') || error.message?.includes('key')) {
         setErrorStatus('api-key');
       } else {
@@ -115,7 +124,6 @@ export default function PracticeSession() {
 
   const speakText = (text: string) => {
     if ('speechSynthesis' in window) {
-      // Cancel any ongoing speech
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.rate = 1;
@@ -137,8 +145,10 @@ export default function PracticeSession() {
           <h1 className="text-sm font-bold tracking-tight text-center">Discussing Hobbies</h1>
           <span className="text-[10px] text-primary font-bold tracking-widest uppercase">Session Level: Intermediate</span>
         </div>
-        <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 rounded-full">
-          <Info className="h-5 w-5" />
+        <Button variant="ghost" size="icon" asChild className="text-white hover:bg-white/10 rounded-full">
+          <Link href="/settings">
+            <Settings className="h-5 w-5" />
+          </Link>
         </Button>
       </header>
 
@@ -148,8 +158,11 @@ export default function PracticeSession() {
           <Alert variant="destructive" className="bg-red-500/10 border-red-500/20 text-red-400">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle className="font-bold">Gemini API Key Missing</AlertTitle>
-            <AlertDescription className="text-xs opacity-90">
-              To enable AI conversations, please add your <code className="bg-black/20 px-1 rounded">GEMINI_API_KEY</code> to the <code className="bg-black/20 px-1 rounded">.env</code> file in your project root.
+            <AlertDescription className="text-xs opacity-90 space-y-2">
+              <p>AI conversations require an API key. Please add it to your settings or project configuration.</p>
+              <Button size="sm" variant="outline" asChild className="bg-red-500/20 border-red-500/30 hover:bg-red-500/40 text-white h-7 text-[10px]">
+                <Link href="/settings">Go to Settings</Link>
+              </Button>
             </AlertDescription>
           </Alert>
         </div>
@@ -186,7 +199,6 @@ export default function PracticeSession() {
 
         {/* Voice Interface / Pulse */}
         <div className="relative flex items-center justify-center w-full h-48">
-          {/* Concentric Pulse Rings - Only show when active */}
           {isListening && (
             <>
               <div className="absolute w-48 h-48 border border-primary/10 rounded-full animate-ping [animation-duration:2s]" />
@@ -218,7 +230,7 @@ export default function PracticeSession() {
         <div className="max-w-xs text-center min-h-[4rem]">
           {errorStatus === 'api-key' ? (
             <p className="text-red-400 font-bold text-sm">
-              Setup Required: Please add your Gemini API Key to start the conversation.
+              Setup Required: Please add your Gemini API Key in Settings to start the conversation.
             </p>
           ) : (
             <p className="text-lg font-medium text-white/90 leading-tight">
@@ -236,7 +248,7 @@ export default function PracticeSession() {
 
         {/* Live Feedback Card */}
         {feedback && feedback.hasCorrection && (
-          <div className="w-full max-w-sm bg-[#1A2333]/80 backdrop-blur-md border border-white/5 rounded-3xl p-5 shadow-2xl space-y-4 animate-in slide-in-from-bottom-4 duration-500">
+          <div className="w-full max-sm bg-[#1A2333]/80 backdrop-blur-md border border-white/5 rounded-3xl p-5 shadow-2xl space-y-4 animate-in slide-in-from-bottom-4 duration-500">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-primary/20 rounded-xl">
                 <Sparkles className="h-4 w-4 text-primary" />

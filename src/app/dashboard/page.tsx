@@ -15,7 +15,7 @@ import {
   Home, 
   MessageSquare, 
   BarChart3, 
-  Settings,
+  Settings as SettingsIcon,
   TrendingUp
 } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
@@ -156,24 +156,24 @@ export default function Dashboard() {
       {/* Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 bg-[#0B121F]/80 backdrop-blur-lg border-t border-white/5 px-6 py-3 z-50">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <NavItem icon={<Home className="h-6 w-6" />} label="Home" active />
-          <NavItem icon={<MessageSquare className="h-6 w-6" />} label="Practice" />
-          <NavItem icon={<TrendingUp className="h-6 w-6" />} label="Insights" />
-          <NavItem icon={<Settings className="h-6 w-6" />} label="Settings" />
+          <Link href="/dashboard" className="flex flex-col items-center gap-1 transition-colors text-primary font-bold">
+            <Home className="h-6 w-6" />
+            <span className="text-[10px]">Home</span>
+          </Link>
+          <Link href="/practice" className="flex flex-col items-center gap-1 transition-colors text-muted-foreground hover:text-white">
+            <MessageSquare className="h-6 w-6" />
+            <span className="text-[10px]">Practice</span>
+          </Link>
+          <button className="flex flex-col items-center gap-1 transition-colors text-muted-foreground hover:text-white">
+            <TrendingUp className="h-6 w-6" />
+            <span className="text-[10px]">Insights</span>
+          </button>
+          <Link href="/settings" className="flex flex-col items-center gap-1 transition-colors text-muted-foreground hover:text-white">
+            <SettingsIcon className="h-6 w-6" />
+            <span className="text-[10px]">Settings</span>
+          </Link>
         </div>
       </nav>
     </div>
-  );
-}
-
-function NavItem({ icon, label, active = false }: { icon: React.ReactNode, label: string, active?: boolean }) {
-  return (
-    <button className={cn(
-      "flex flex-col items-center gap-1 transition-colors",
-      active ? "text-primary font-bold" : "text-muted-foreground hover:text-white"
-    )}>
-      {icon}
-      <span className="text-[10px]">{label}</span>
-    </button>
   );
 }
