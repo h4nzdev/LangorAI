@@ -16,7 +16,6 @@ import {
   MessageSquare, 
   BarChart3, 
   Settings,
-  Plus,
   TrendingUp
 } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
@@ -93,11 +92,13 @@ export default function Dashboard() {
           </Card>
 
           {/* Start AI Session CTA */}
-          <Button className="w-full h-16 rounded-2xl bg-[#1D7AFC] hover:bg-[#1D7AFC]/90 text-white text-lg font-bold gap-3 shadow-lg shadow-blue-500/20">
-            <div className="bg-white/20 p-1.5 rounded-full">
-              <Mic className="h-6 w-6 fill-current" />
-            </div>
-            Start AI Session
+          <Button asChild className="w-full h-16 rounded-2xl bg-[#1D7AFC] hover:bg-[#1D7AFC]/90 text-white text-lg font-bold gap-3 shadow-lg shadow-blue-500/20">
+            <Link href="/practice">
+              <div className="bg-white/20 p-1.5 rounded-full">
+                <Mic className="h-6 w-6 fill-current" />
+              </div>
+              Start AI Session
+            </Link>
           </Button>
 
           {/* Daily Progress */}

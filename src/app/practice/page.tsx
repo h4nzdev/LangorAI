@@ -1,176 +1,136 @@
+
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Input } from '@/components/ui/input';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { 
+  ChevronLeft, 
+  Info, 
   Mic, 
-  Send, 
-  ArrowLeft, 
-  Settings, 
-  Volume2, 
-  Info,
-  ChevronLeft,
+  MicOff, 
+  FileText, 
+  PhoneOff, 
   Sparkles,
-  RefreshCw
+  ArrowRight
 } from 'lucide-react';
+import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { cn } from '@/lib/utils';
 
-type Message = {
-  role: 'user' | 'ai';
-  text: string;
-  translation?: string;
-};
-
-export default function PracticePage() {
-  const [messages, setMessages] = useState<Message[]>([
-    { role: 'ai', text: '¡Hola! Soy tu tutor de español. ¿Cómo estás hoy?' },
-  ]);
-  const [input, setInput] = useState('');
-  const [isRecording, setIsRecording] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTo(0, scrollRef.current.scrollHeight);
-    }
-  }, [messages]);
-
-  const handleSend = () => {
-    if (!input.trim()) return;
-    
-    setMessages(prev => [...prev, { role: 'user', text: input }]);
-    setInput('');
-    
-    // Simulate AI response
-    setTimeout(() => {
-      setMessages(prev => [...prev, { 
-        role: 'ai', 
-        text: '¡Qué bien! Me alegra mucho escucharlo. ¿Qué has hecho de interesante hoy?',
-        translation: "That's good! I'm glad to hear it. What interesting thing have you done today?"
-      }]);
-    }, 1000);
-  };
+export default function PracticeSession() {
+  const [isMuted, setIsMuted] = useState(false);
+  const aiAvatar = PlaceHolderImages.find(img => img.id === 'lumina-ai')?.imageUrl;
 
   return (
-    <div className="flex flex-col h-screen bg-background">
+    <div className="min-h-screen bg-[#0B121F] text-white flex flex-col font-body selection:bg-primary/30">
       {/* Header */}
-      <header className="flex h-16 shrink-0 items-center justify-between border-b px-6 bg-white z-10">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" asChild>
-            <Link href="/dashboard">
-              <ChevronLeft className="h-5 w-5" />
-            </Link>
-          </Button>
-          <div>
-            <h1 className="text-lg font-bold">At the Restaurant</h1>
-            <div className="flex items-center gap-2">
-              <Badge variant="secondary" className="text-[10px] px-1 h-4">Spanish</Badge>
-              <span className="text-xs text-muted-foreground">Scenario Practice</span>
-            </div>
-          </div>
+      <header className="flex items-center justify-between px-6 py-5 max-w-xl mx-auto w-full shrink-0">
+        <Button variant="ghost" size="icon" asChild className="text-white hover:bg-white/10 rounded-full">
+          <Link href="/dashboard">
+            <ChevronLeft className="h-6 w-6" />
+          </Link>
+        </Button>
+        <div className="flex flex-col items-center">
+          <h1 className="text-sm font-bold tracking-tight">Discussing Hobbies</h1>
+          <span className="text-[10px] text-primary font-bold tracking-widest uppercase">Session Level: Intermediate</span>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon">
-            <Settings className="h-5 w-5" />
-          </Button>
-        </div>
+        <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 rounded-full">
+          <Info className="h-5 w-5" />
+        </Button>
       </header>
 
-      {/* Main Content */}
-      <main className="flex-1 overflow-hidden flex flex-col max-w-4xl mx-auto w-full p-4 gap-4">
-        {/* Chat Area */}
-        <Card className="flex-1 overflow-hidden border-none shadow-lg bg-white flex flex-col">
-          <ScrollArea className="flex-1 p-6" ref={scrollRef}>
-            <div className="space-y-6">
-              {messages.map((m, i) => (
-                <div 
-                  key={i} 
-                  className={cn(
-                    "flex flex-col gap-2 max-w-[80%]",
-                    m.role === 'user' ? "ml-auto items-end" : "items-start"
-                  )}
-                >
-                  <div className={cn(
-                    "px-4 py-3 rounded-2xl text-sm leading-relaxed",
-                    m.role === 'user' 
-                      ? "bg-primary text-primary-foreground rounded-tr-none" 
-                      : "bg-muted text-foreground rounded-tl-none"
-                  )}>
-                    {m.text}
-                  </div>
-                  {m.translation && (
-                    <div className="text-[10px] text-muted-foreground italic px-1">
-                      {m.translation}
-                    </div>
-                  )}
-                  {m.role === 'ai' && (
-                    <Button variant="ghost" size="icon" className="h-6 w-6 opacity-50 hover:opacity-100">
-                      <Volume2 className="h-3 w-3" />
-                    </Button>
-                  )}
-                </div>
-              ))}
-            </div>
-          </ScrollArea>
-        </Card>
+      {/* Main Session Content */}
+      <main className="flex-1 flex flex-col items-center justify-center px-6 gap-12">
+        {/* AI Avatar */}
+        <div className="relative group">
+          <div className="absolute -inset-1 bg-gradient-to-r from-primary to-blue-400 rounded-full opacity-25 blur transition duration-1000 group-hover:duration-200" />
+          <Avatar className="h-28 w-28 border-4 border-[#1A2333] shadow-2xl relative">
+            <AvatarImage src={aiAvatar} alt="Lumina AI" className="object-cover" />
+            <AvatarFallback>AI</AvatarFallback>
+          </Avatar>
+          <div className="absolute bottom-1 right-2 h-5 w-5 bg-emerald-500 border-4 border-[#0B121F] rounded-full" />
+        </div>
 
-        {/* Input Area */}
-        <div className="flex flex-col gap-3 p-2">
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <Input 
-                placeholder="Type your response..." 
-                className="pr-12 h-12 rounded-xl shadow-sm border-2 focus-visible:ring-primary"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-              />
-              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-primary">
-                  <Sparkles className="h-4 w-4" />
-                </Button>
-              </div>
+        <div className="text-center space-y-2">
+          <h2 className="text-2xl font-bold tracking-tight">Lumina AI</h2>
+          <p className="text-[#1D7AFC] text-xs font-black tracking-[0.2em] uppercase animate-pulse">Listening...</p>
+        </div>
+
+        {/* Voice Interface / Pulse */}
+        <div className="relative flex items-center justify-center w-full h-64">
+          {/* Concentric Pulse Rings */}
+          <div className="absolute w-48 h-48 border border-primary/10 rounded-full animate-ping [animation-duration:3s]" />
+          <div className="absolute w-64 h-64 border border-primary/5 rounded-full animate-ping [animation-duration:4s]" />
+          <div className="absolute w-80 h-80 border border-primary/5 rounded-full animate-ping [animation-duration:5s]" />
+          
+          <Button 
+            size="icon" 
+            className="h-20 w-20 rounded-full bg-[#1D7AFC] hover:bg-[#1D7AFC]/90 shadow-[0_0_30px_rgba(29,122,252,0.4)] z-10"
+          >
+            <Mic className="h-8 w-8 text-white fill-current" />
+          </Button>
+        </div>
+
+        {/* Live Transcription */}
+        <div className="max-w-xs text-center">
+          <p className="text-sm text-primary/80 leading-relaxed italic font-medium">
+            "I really like play soccer every weekend with my friends at the park."
+          </p>
+        </div>
+
+        {/* Live Feedback Card */}
+        <div className="w-full max-w-sm bg-[#1A2333]/80 backdrop-blur-md border border-white/5 rounded-3xl p-5 shadow-2xl space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-primary/20 rounded-xl">
+              <Sparkles className="h-4 w-4 text-primary" />
             </div>
-            <Button 
-              size="icon" 
-              className={cn(
-                "h-12 w-12 rounded-xl transition-all",
-                isRecording ? "bg-red-500 hover:bg-red-600 animate-pulse" : "bg-primary"
-              )}
-              onClick={() => setIsRecording(!isRecording)}
-            >
-              <Mic className="h-5 w-5" />
-            </Button>
-            <Button 
-              size="icon" 
-              className="h-12 w-12 rounded-xl"
-              onClick={handleSend}
-              disabled={!input.trim()}
-            >
-              <Send className="h-5 w-5" />
-            </Button>
+            <h3 className="font-bold text-sm">Live Feedback</h3>
           </div>
-          <div className="flex justify-center">
-            <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-              <Info className="h-3 w-3" />
-              Tip: Press space to start recording, or click the mic.
-            </p>
-          </div>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Instead of <span className="text-red-400 font-bold">"I like play"</span>, try <span className="text-emerald-400 font-bold">"I enjoy playing"</span> for better fluency and natural flow.
+          </p>
+          <button className="text-[10px] font-black text-primary uppercase tracking-widest flex items-center gap-2 hover:opacity-80 transition-opacity">
+            Grammar Tip <ArrowRight className="h-3 w-3" />
+          </button>
         </div>
       </main>
 
-      {/* Helper Panel (Optional/Floating) */}
-      <div className="fixed bottom-24 right-8 group">
-        <Button variant="secondary" size="lg" className="rounded-full shadow-xl border gap-2 font-bold">
-          <RefreshCw className="h-4 w-4" />
-          Help me respond
+      {/* Footer Controls */}
+      <footer className="p-6 max-w-xl mx-auto w-full grid grid-cols-3 gap-4 pb-10">
+        <ControlBtn 
+          icon={isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />} 
+          label="MUTE" 
+          onClick={() => setIsMuted(!isMuted)} 
+        />
+        <ControlBtn 
+          icon={<FileText className="h-5 w-5" />} 
+          label="TRANSCRIPT" 
+        />
+        <Button 
+          variant="destructive" 
+          className="h-14 rounded-2xl flex flex-col gap-1 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 text-red-500 group"
+          asChild
+        >
+          <Link href="/dashboard">
+            <PhoneOff className="h-5 w-5 group-hover:scale-110 transition-transform" />
+            <span className="text-[9px] font-black tracking-widest uppercase">End Session</span>
+          </Link>
         </Button>
-      </div>
+      </footer>
     </div>
+  );
+}
+
+function ControlBtn({ icon, label, onClick }: { icon: React.ReactNode, label: string, onClick?: () => void }) {
+  return (
+    <Button 
+      variant="secondary" 
+      className="h-14 rounded-2xl flex flex-col gap-1 bg-[#1A2333] border border-white/5 hover:bg-[#252D3D] text-white"
+      onClick={onClick}
+    >
+      {icon}
+      <span className="text-[9px] font-black tracking-widest uppercase opacity-70">{label}</span>
+    </Button>
   );
 }
