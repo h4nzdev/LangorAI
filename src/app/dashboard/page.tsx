@@ -24,26 +24,29 @@ interface Activity {
   title: string;
   meta: string;
   goal: string;
+  level: string;
   imageId: string;
 }
 
 const ALL_ACTIVITIES: Activity[] = [
-  { id: 'job-interview', title: 'Job Interview Prep', meta: '15 mins • 40 pts', goal: 'Career Growth', imageId: 'job-interview' },
-  { id: 'presentation', title: 'Executive Pitch', meta: '12 mins • 35 pts', goal: 'Career Growth', imageId: 'presentation' },
-  { id: 'small-talk', title: 'Small Talk Mastery', meta: '20 mins • 50 pts', goal: 'Socializing', imageId: 'small-talk' },
-  { id: 'group-chat', title: 'Social Mixer Demo', meta: '10 mins • 20 pts', goal: 'Socializing', imageId: 'small-talk' },
-  { id: 'grammar-books', title: 'Grammar Refinement', meta: '10 mins • 25 pts', goal: 'Self-Improvement', imageId: 'grammar-books' },
-  { id: 'ai-tutor-session', title: 'Daily Fluency Check', meta: '5 mins • 15 pts', goal: 'Self-Improvement', imageId: 'ai-tutor' },
-  { id: 'travel-airport', title: 'Airport Navigation', meta: '15 mins • 30 pts', goal: 'Travel', imageId: 'small-talk' },
-  { id: 'travel-hotel', title: 'Hotel Check-in', meta: '10 mins • 20 pts', goal: 'Travel', imageId: 'hero-learning' },
-  { id: 'ielts-prep', title: 'IELTS Speaking Task', meta: '20 mins • 60 pts', goal: 'Exam Prep', imageId: 'grammar-books' },
-  { id: 'toefl-prep', title: 'TOEFL Academic Pitch', meta: '18 mins • 55 pts', goal: 'Exam Prep', imageId: 'presentation' },
+  { id: 'job-interview', title: 'Job Interview Prep', meta: '15 mins • 40 pts', goal: 'Career Growth', level: 'Intermediate', imageId: 'job-interview' },
+  { id: 'presentation', title: 'Executive Pitch', meta: '12 mins • 35 pts', goal: 'Career Growth', level: 'Advanced', imageId: 'presentation' },
+  { id: 'small-talk-beg', title: 'Simple Greetings', meta: '10 mins • 20 pts', goal: 'Socializing', level: 'Beginner', imageId: 'small-talk' },
+  { id: 'small-talk', title: 'Small Talk Mastery', meta: '20 mins • 50 pts', goal: 'Socializing', level: 'Intermediate', imageId: 'small-talk' },
+  { id: 'grammar-books-beg', title: 'ABC Mastery', meta: '10 mins • 15 pts', goal: 'Self-Improvement', level: 'Beginner', imageId: 'grammar-books' },
+  { id: 'grammar-books', title: 'Grammar Refinement', meta: '10 mins • 25 pts', goal: 'Self-Improvement', level: 'Intermediate', imageId: 'grammar-books' },
+  { id: 'ai-tutor-session', title: 'Daily Fluency Check', meta: '5 mins • 15 pts', goal: 'Self-Improvement', level: 'Elementary', imageId: 'ai-tutor' },
+  { id: 'travel-airport', title: 'Airport Navigation', meta: '15 mins • 30 pts', goal: 'Travel', level: 'Intermediate', imageId: 'small-talk' },
+  { id: 'travel-hotel', title: 'Hotel Check-in', meta: '10 mins • 20 pts', goal: 'Travel', level: 'Elementary', imageId: 'hero-learning' },
+  { id: 'ielts-prep', title: 'IELTS Speaking Task', meta: '20 mins • 60 pts', goal: 'Exam Prep', level: 'Advanced', imageId: 'grammar-books' },
+  { id: 'toefl-prep', title: 'TOEFL Academic Pitch', meta: '18 mins • 55 pts', goal: 'Exam Prep', level: 'Advanced', imageId: 'presentation' },
 ];
 
 export default function Dashboard() {
-  const [userName, setUserName] = useState('Hanz');
+  const [userName, setUserName] = useState('User');
   const [userAvatar, setUserAvatar] = useState('👤');
   const [userGoal, setUserGoal] = useState('Career Growth');
+  const [userLevel, setUserLevel] = useState('Intermediate');
   const [recommendations, setRecommendations] = useState<Activity[]>([]);
   const [stats, setStats] = useState({
     streak: 0,
@@ -62,6 +65,9 @@ export default function Dashboard() {
     const savedGoal = localStorage.getItem('USER_GOAL') || 'Career Growth';
     setUserGoal(savedGoal);
 
+    const savedLevel = localStorage.getItem('USER_LEVEL') || 'Intermediate';
+    setUserLevel(savedLevel);
+
     // Progress stats
     const streak = parseInt(localStorage.getItem('STREAK_COUNT') || '0');
     const sessions = parseInt(localStorage.getItem('SESSIONS_COUNT') || '0');
@@ -75,13 +81,20 @@ export default function Dashboard() {
       confidence: calculatedConfidence
     });
 
-    // Simple matching recommendation engine
+    // Enhanced recommendation engine (matching goal and level)
     try {
-      let filtered = ALL_ACTIVITIES.filter(a => a.goal === savedGoal);
+      // 1. Try to find exact goal and level matches
+      let filtered = ALL_ACTIVITIES.filter(a => a.goal === savedGoal && a.level === savedLevel);
       
-      // If we don't have enough specific goals, add some top-rated general ones
+      // 2. If not enough, find goal matches at any level
       if (filtered.length < 4) {
-        const fillers = ALL_ACTIVITIES.filter(a => a.goal !== savedGoal).slice(0, 4 - filtered.length);
+        const goalMatches = ALL_ACTIVITIES.filter(a => a.goal === savedGoal && !filtered.find(f => f.id === a.id));
+        filtered = [...filtered, ...goalMatches];
+      }
+
+      // 3. If still not enough, add fillers from other goals
+      if (filtered.length < 4) {
+        const fillers = ALL_ACTIVITIES.filter(a => !filtered.find(f => f.id === a.id)).slice(0, 4 - filtered.length);
         filtered = [...filtered, ...fillers];
       }
       
@@ -137,7 +150,7 @@ export default function Dashboard() {
             {/* Welcome Section */}
             <div className="space-y-1">
               <h1 className="text-3xl font-bold">Welcome back, {userName}! {userAvatar}</h1>
-              <p className="text-muted-foreground text-sm font-medium">Your goal: <span className="text-primary">{userGoal}</span></p>
+              <p className="text-muted-foreground text-sm font-medium">Goal: <span className="text-primary">{userGoal}</span> • Level: <span className="text-primary">{userLevel}</span></p>
             </div>
 
             {/* Stats Overview */}
@@ -239,7 +252,7 @@ export default function Dashboard() {
                 <h2 className="text-xl font-bold">Recommended for You</h2>
                 <div className="bg-primary/10 px-3 py-1 rounded-full flex items-center gap-2">
                   <LayoutGrid className="h-3 w-3 text-primary" />
-                  <span className="text-[10px] font-black uppercase text-primary tracking-wider">{userGoal} Focused</span>
+                  <span className="text-[10px] font-black uppercase text-primary tracking-wider">{userGoal} • {userLevel} Focused</span>
                 </div>
               </div>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -262,13 +275,14 @@ export default function Dashboard() {
                         <CardContent className="p-3 space-y-1">
                           <h3 className="font-bold text-sm leading-tight text-white">{item.title}</h3>
                           <p className="text-[10px] text-muted-foreground">{item.meta}</p>
+                          <Badge variant="outline" className="text-[8px] h-4 py-0 border-white/10 text-muted-foreground">{item.level}</Badge>
                         </CardContent>
                       </Card>
                     </Link>
                   );
                 }) : (
                   <div className="col-span-full py-8 text-center bg-[#1A2333] rounded-3xl border border-dashed border-white/10">
-                    <p className="text-muted-foreground text-sm italic">Loading your personalized roadmap...</p>
+                    <p className="text-muted-foreground text-sm italic">Finding perfect matches for your profile...</p>
                   </div>
                 )}
               </div>

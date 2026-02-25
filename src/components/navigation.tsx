@@ -9,8 +9,9 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 export function Navigation() {
   const pathname = usePathname();
-  const [userName, setUserName] = useState('Hanz');
+  const [userName, setUserName] = useState('User');
   const [userAvatar, setUserAvatar] = useState('👤');
+  const [userLevel, setUserLevel] = useState('Intermediate');
 
   useEffect(() => {
     const savedName = localStorage.getItem('USER_NAME');
@@ -18,6 +19,9 @@ export function Navigation() {
     
     const savedAvatar = localStorage.getItem('USER_AVATAR');
     if (savedAvatar) setUserAvatar(savedAvatar);
+
+    const savedLevel = localStorage.getItem('USER_LEVEL');
+    if (savedLevel) setUserLevel(savedLevel);
   }, []);
 
   const navItems = [
@@ -71,7 +75,7 @@ export function Navigation() {
               </Avatar>
               <div className="flex-1 overflow-hidden">
                 <p className="text-sm font-bold text-white truncate">{userName}</p>
-                <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-black">Intermediate</p>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-black">{userLevel}</p>
               </div>
             </div>
           </Link>
