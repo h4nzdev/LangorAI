@@ -1,8 +1,7 @@
-
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import Link from 'next/navigation';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -55,7 +54,6 @@ export default function PracticeSession() {
   const isMutedRef = useRef(isMuted);
   const isEndingRef = useRef(isEnding);
 
-  // Keep refs in sync for callbacks
   useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
   useEffect(() => { isEndingRef.current = isEnding; }, [isEnding]);
 
@@ -79,11 +77,9 @@ export default function PracticeSession() {
 
       recognition.onerror = (event: any) => {
         setIsListening(false);
-        // Don't show error if it's just a "no-speech" timeout during auto-loop
         if (event.error !== 'no-speech') {
           setTranscript("Error: Try again.");
         } else {
-          // If no speech was detected, and we aren't muted/thinking, restart listening for a better experience
           if (!isMutedRef.current && !isThinking && !isSpeaking && !isEndingRef.current) {
             setTimeout(() => {
               startListeningSafely();
@@ -126,7 +122,6 @@ export default function PracticeSession() {
     setIsThinking(true);
     setErrorStatus('none');
     
-    // 3 Second natural delay requested for "conversation feel"
     await new Promise(resolve => setTimeout(resolve, 3000));
 
     const savedApiKey = localStorage.getItem('GEMINI_API_KEY') || undefined;
@@ -163,16 +158,15 @@ export default function PracticeSession() {
       
       utterance.onstart = () => {
         setIsSpeaking(true);
-        setIsThinking(false); // Done thinking once we start speaking
+        setIsThinking(false);
       };
 
       utterance.onend = () => {
         setIsSpeaking(false);
-        // AUTOMATIC LOOP: Start listening again automatically after AI finishes its turn
         if (!isMutedRef.current && !isEndingRef.current) {
           setTimeout(() => {
             startListeningSafely();
-          }, 600); // Slight delay for natural flow
+          }, 600);
         }
       };
 
