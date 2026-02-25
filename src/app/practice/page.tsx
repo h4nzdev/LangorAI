@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { 
   ChevronLeft, 
   Info, 
@@ -13,7 +14,8 @@ import {
   PhoneOff, 
   Sparkles,
   ArrowRight,
-  Loader2
+  Loader2,
+  AlertCircle
 } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { cn } from '@/lib/utils';
@@ -42,6 +44,7 @@ export default function PracticeSession() {
   const [transcript, setTranscript] = useState("Click the mic to start speaking...");
   const [feedback, setFeedback] = useState<PracticeOutput['feedback'] | null>(null);
   const [aiResponseText, setAiResponseText] = useState("Hi! I'm Langor AI. What hobbies do you enjoy?");
+  const [errorStatus, setErrorStatus] = useState<'none' | 'generic' | 'api-key'>('none');
   
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const aiAvatar = PlaceHolderImages.find(img => img.id === 'langor-ai')?.imageUrl;
@@ -86,6 +89,7 @@ export default function PracticeSession() {
 
   const handleUserSpeech = async (text: string) => {
     setIsThinking(true);
+    setErrorStatus('none');
     try {
       const result = await startPracticeSession({ userInput: text });
       setAiResponseText(result.aiResponse);
@@ -93,8 +97,16 @@ export default function PracticeSession() {
       
       // AI speaks the response
       speakText(result.aiResponse);
-    } catch (error) {
+    } catch (error: any) {
       console.error("AI Error:", error);
+      
+      // Check if it's likely an API key issue (common in this environment)
+      if (error.message?.includes('API_KEY') || error.message?.includes('401') || error.message?.includes('key')) {
+        setErrorStatus('api-key');
+      } else {
+        setErrorStatus('generic');
+      }
+      
       setTranscript("Sorry, I had trouble thinking. Try again?");
     } finally {
       setIsThinking(false);
@@ -129,6 +141,19 @@ export default function PracticeSession() {
           <Info className="h-5 w-5" />
         </Button>
       </header>
+
+      {/* API Key Warning Overlay */}
+      {errorStatus === 'api-key' && (
+        <div className="px-6 max-w-xl mx-auto w-full pt-4 animate-in fade-in slide-in-from-top-4">
+          <Alert variant="destructive" className="bg-red-500/10 border-red-500/20 text-red-400">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle className="font-bold">Gemini API Key Missing</AlertTitle>
+            <AlertDescription className="text-xs opacity-90">
+              To enable AI conversations, please add your <code className="bg-black/20 px-1 rounded">GEMINI_API_KEY</code> to the <code className="bg-black/20 px-1 rounded">.env</code> file in your project root.
+            </AlertDescription>
+          </Alert>
+        </div>
+      )}
 
       {/* Main Session Content */}
       <main className="flex-1 flex flex-col items-center justify-center px-6 gap-8">
@@ -191,9 +216,15 @@ export default function PracticeSession() {
 
         {/* AI Response Display */}
         <div className="max-w-xs text-center min-h-[4rem]">
-          <p className="text-lg font-medium text-white/90 leading-tight">
-            "{aiResponseText}"
-          </p>
+          {errorStatus === 'api-key' ? (
+            <p className="text-red-400 font-bold text-sm">
+              Setup Required: Please add your Gemini API Key to start the conversation.
+            </p>
+          ) : (
+            <p className="text-lg font-medium text-white/90 leading-tight">
+              "{aiResponseText}"
+            </p>
+          )}
         </div>
 
         {/* User Transcript */}
