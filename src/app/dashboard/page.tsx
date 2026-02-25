@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -54,8 +53,8 @@ export default function Dashboard() {
       {/* Header */}
       <header className="flex items-center justify-between px-6 py-4 max-w-4xl mx-auto w-full">
         <Avatar className="h-10 w-10 border-2 border-primary/20">
-          <AvatarImage src="https://picsum.photos/seed/alex/100/100" />
-          <AvatarFallback>AX</AvatarFallback>
+          <AvatarImage src="https://picsum.photos/seed/hanz/100/100" />
+          <AvatarFallback>HZ</AvatarFallback>
         </Avatar>
         <span className="text-xl font-bold tracking-tight">Langor AI</span>
         <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 rounded-xl">
@@ -67,7 +66,7 @@ export default function Dashboard() {
         <div className="max-w-4xl mx-auto px-6 space-y-8">
           {/* Welcome Section */}
           <div className="space-y-1">
-            <h1 className="text-3xl font-bold">Welcome back, Alex!</h1>
+            <h1 className="text-3xl font-bold">Welcome back, Hanz!</h1>
             <p className="text-muted-foreground text-sm">Ready to boost your speaking confidence?</p>
           </div>
 
