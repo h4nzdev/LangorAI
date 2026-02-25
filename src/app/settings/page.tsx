@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -6,12 +5,13 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { ChevronLeft, Key, Save, ShieldCheck, Info } from 'lucide-react';
+import { ChevronLeft, Key, Save, ShieldCheck, Info, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 export default function SettingsPage() {
   const [apiKey, setApiKey] = useState('');
+  const [isSaved, setIsSaved] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -22,10 +22,17 @@ export default function SettingsPage() {
 
   const handleSave = () => {
     localStorage.setItem('GEMINI_API_KEY', apiKey);
+    setIsSaved(true);
+    
     toast({
       title: "Settings Saved",
       description: "Your Gemini API Key has been stored locally.",
     });
+
+    // Reset saved state after 3 seconds
+    setTimeout(() => {
+      setIsSaved(false);
+    }, 3000);
   };
 
   return (
@@ -61,7 +68,10 @@ export default function SettingsPage() {
                   type="password" 
                   placeholder="Enter your API key" 
                   value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
+                  onChange={(e) => {
+                    setApiKey(e.target.value);
+                    if (isSaved) setIsSaved(false);
+                  }}
                   className="bg-[#0B121F] border-white/10 focus:ring-primary h-11"
                 />
                 <p className="text-[10px] text-muted-foreground flex items-center gap-1.5 px-1">
@@ -69,8 +79,24 @@ export default function SettingsPage() {
                   Your key is saved only in your browser's local storage.
                 </p>
               </div>
-              <Button onClick={handleSave} className="w-full bg-[#1D7AFC] hover:bg-[#1D7AFC]/90 font-bold gap-2">
-                <Save className="h-4 w-4" /> Save Key
+              <Button 
+                onClick={handleSave} 
+                className={cn(
+                  "w-full transition-all duration-300 font-bold gap-2",
+                  isSaved 
+                    ? "bg-emerald-500 hover:bg-emerald-600 text-white" 
+                    : "bg-[#1D7AFC] hover:bg-[#1D7AFC]/90 text-white"
+                )}
+              >
+                {isSaved ? (
+                  <>
+                    <CheckCircle2 className="h-4 w-4" /> Key Saved!
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4" /> Save Key
+                  </>
+                )}
               </Button>
             </CardContent>
           </Card>
@@ -84,7 +110,7 @@ export default function SettingsPage() {
               How to get an API Key?
             </div>
             <ol className="text-xs text-muted-foreground space-y-2 list-decimal list-inside">
-              <li>Visit the <a href="https://aistudio.google.com/app/apikey" target="_blank" className="text-primary underline">Google AI Studio</a>.</li>
+              <li>Visit the <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-primary underline">Google AI Studio</a>.</li>
               <li>Create or select a project.</li>
               <li>Click "Create API key in new project".</li>
               <li>Copy and paste the key here.</li>
