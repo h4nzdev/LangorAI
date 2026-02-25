@@ -1,14 +1,13 @@
-
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { 
   ChevronLeft, 
-  Info, 
   Mic, 
   MicOff, 
   FileText, 
@@ -21,9 +20,8 @@ import {
 } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { cn } from '@/lib/utils';
-import { startPracticeSession, type PracticeOutput } from '@/ai/flows/practice-flow';
+import { startPracticeSession, summarizeSession, type PracticeOutput } from '@/ai/flows/practice-flow';
 
-// Mock Web Speech API types for TypeScript
 interface SpeechRecognitionEvent extends Event {
   results: SpeechRecognitionResultList;
 }
@@ -40,18 +38,20 @@ interface SpeechRecognition extends EventTarget {
 }
 
 export default function PracticeSession() {
+  const router = useRouter();
   const [isMuted, setIsMuted] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
+  const [isEnding, setIsEnding] = useState(false);
   const [transcript, setTranscript] = useState("Click the mic to start speaking...");
   const [feedback, setFeedback] = useState<PracticeOutput['feedback'] | null>(null);
   const [aiResponseText, setAiResponseText] = useState("Hi! I'm Langor AI. What hobbies do you enjoy?");
+  const [history, setHistory] = useState<{role: 'user' | 'model', text: string}[]>([]);
   const [errorStatus, setErrorStatus] = useState<'none' | 'generic' | 'api-key'>('none');
   
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const aiAvatar = PlaceHolderImages.find(img => img.id === 'langor-ai')?.imageUrl;
 
-  // Initialize Speech Recognition
   useEffect(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (SpeechRecognition) {
@@ -93,29 +93,28 @@ export default function PracticeSession() {
     setIsThinking(true);
     setErrorStatus('none');
     
-    // Check for user-provided API key in localStorage
     const savedApiKey = localStorage.getItem('GEMINI_API_KEY') || undefined;
+    const currentHistory = [...history, { role: 'user' as const, text }];
 
     try {
       const result = await startPracticeSession({ 
         userInput: text,
+        history: currentHistory,
         apiKey: savedApiKey
       });
+      
       setAiResponseText(result.aiResponse);
       setFeedback(result.feedback);
+      setHistory([...currentHistory, { role: 'model' as const, text: result.aiResponse }]);
       
-      // AI speaks the response
       speakText(result.aiResponse);
     } catch (error: any) {
       console.error("AI Error:", error);
-      
-      // Check if it's likely an API key issue
       if (error.message?.includes('API_KEY') || error.message?.includes('401') || error.message?.includes('key')) {
         setErrorStatus('api-key');
       } else {
         setErrorStatus('generic');
       }
-      
       setTranscript("Sorry, I had trouble thinking. Try again?");
     } finally {
       setIsThinking(false);
@@ -132,9 +131,33 @@ export default function PracticeSession() {
     }
   };
 
+  const handleEndSession = async () => {
+    if (history.length === 0) {
+      router.push('/dashboard');
+      return;
+    }
+
+    setIsEnding(true);
+    const savedApiKey = localStorage.getItem('GEMINI_API_KEY') || undefined;
+
+    try {
+      const analysis = await summarizeSession({
+        history,
+        apiKey: savedApiKey
+      });
+      
+      localStorage.setItem('LAST_SESSION_ANALYSIS', JSON.stringify(analysis));
+      router.push('/practice/analysis');
+    } catch (error) {
+      console.error("Analysis Error:", error);
+      router.push('/dashboard');
+    } finally {
+      setIsEnding(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#0B121F] text-white flex flex-col font-body selection:bg-primary/30">
-      {/* Header */}
       <header className="flex items-center justify-between px-6 py-5 max-w-xl mx-auto w-full shrink-0">
         <Button variant="ghost" size="icon" asChild className="text-white hover:bg-white/10 rounded-full">
           <Link href="/dashboard">
@@ -152,7 +175,6 @@ export default function PracticeSession() {
         </Button>
       </header>
 
-      {/* API Key Warning Overlay */}
       {errorStatus === 'api-key' && (
         <div className="px-6 max-w-xl mx-auto w-full pt-4 animate-in fade-in slide-in-from-top-4">
           <Alert variant="destructive" className="bg-red-500/10 border-red-500/20 text-red-400">
@@ -168,9 +190,7 @@ export default function PracticeSession() {
         </div>
       )}
 
-      {/* Main Session Content */}
       <main className="flex-1 flex flex-col items-center justify-center px-6 gap-8">
-        {/* AI Avatar */}
         <div className="relative group">
           <div className={cn(
             "absolute -inset-1 bg-gradient-to-r from-primary to-blue-400 rounded-full opacity-25 blur transition duration-1000",
@@ -197,7 +217,6 @@ export default function PracticeSession() {
           )}
         </div>
 
-        {/* Voice Interface / Pulse */}
         <div className="relative flex items-center justify-center w-full h-48">
           {isListening && (
             <>
@@ -209,14 +228,14 @@ export default function PracticeSession() {
           <Button 
             size="icon" 
             onClick={toggleListening}
-            disabled={isThinking}
+            disabled={isThinking || isEnding}
             className={cn(
               "h-24 w-24 rounded-full transition-all duration-300 shadow-2xl z-10",
               isListening ? "bg-red-500 hover:bg-red-600 scale-110" : "bg-[#1D7AFC] hover:bg-[#1D7AFC]/90",
-              isThinking && "opacity-50 cursor-not-allowed"
+              (isThinking || isEnding) && "opacity-50 cursor-not-allowed"
             )}
           >
-            {isThinking ? (
+            {isThinking || isEnding ? (
               <Loader2 className="h-10 w-10 text-white animate-spin" />
             ) : isListening ? (
               <MicOff className="h-10 w-10 text-white fill-current" />
@@ -226,27 +245,18 @@ export default function PracticeSession() {
           </Button>
         </div>
 
-        {/* AI Response Display */}
         <div className="max-w-xs text-center min-h-[4rem]">
-          {errorStatus === 'api-key' ? (
-            <p className="text-red-400 font-bold text-sm">
-              Setup Required: Please add your Gemini API Key in Settings to start the conversation.
-            </p>
-          ) : (
-            <p className="text-lg font-medium text-white/90 leading-tight">
-              "{aiResponseText}"
-            </p>
-          )}
+          <p className="text-lg font-medium text-white/90 leading-tight">
+            "{aiResponseText}"
+          </p>
         </div>
 
-        {/* User Transcript */}
         <div className="max-w-xs text-center border-t border-white/5 pt-4">
           <p className="text-sm text-primary/80 leading-relaxed italic font-medium">
             "{transcript}"
           </p>
         </div>
 
-        {/* Live Feedback Card */}
         {feedback && feedback.hasCorrection && (
           <div className="w-full max-sm bg-[#1A2333]/80 backdrop-blur-md border border-white/5 rounded-3xl p-5 shadow-2xl space-y-4 animate-in slide-in-from-bottom-4 duration-500">
             <div className="flex items-center gap-3">
@@ -263,14 +273,10 @@ export default function PracticeSession() {
                 {feedback.explanation}
               </p>
             )}
-            <button className="text-[10px] font-black text-primary uppercase tracking-widest flex items-center gap-2 hover:opacity-80 transition-opacity">
-              Grammar Tip <ArrowRight className="h-3 w-3" />
-            </button>
           </div>
         )}
       </main>
 
-      {/* Footer Controls */}
       <footer className="p-6 max-w-xl mx-auto w-full grid grid-cols-3 gap-4 pb-10">
         <ControlBtn 
           icon={isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />} 
@@ -283,13 +289,18 @@ export default function PracticeSession() {
         />
         <Button 
           variant="destructive" 
+          onClick={handleEndSession}
+          disabled={isEnding || isThinking}
           className="h-14 rounded-2xl flex flex-col gap-1 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 text-red-500 group"
-          asChild
         >
-          <Link href="/practice/analysis">
+          {isEnding ? (
+            <Loader2 className="h-5 w-5 animate-spin" />
+          ) : (
             <PhoneOff className="h-5 w-5 group-hover:scale-110 transition-transform" />
-            <span className="text-[9px] font-black tracking-widest uppercase">End Session</span>
-          </Link>
+          )}
+          <span className="text-[9px] font-black tracking-widest uppercase">
+            {isEnding ? "Analyzing..." : "End Session"}
+          </span>
         </Button>
       </footer>
     </div>
