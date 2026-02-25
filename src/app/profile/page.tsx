@@ -19,13 +19,17 @@ import {
   LogOut,
   Save,
   CheckCircle2,
-  Smile
+  Smile,
+  BarChart3
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Navigation } from '@/components/navigation';
 
 const AVATARS = ['👤', '🧑‍🚀', '🧛', '🧙', '🦒', '🦊', '🦉', '🎨', '🎭', '🎮', '🎸', '🚀'];
+const LANGUAGES = ['English', 'Spanish', 'French', 'German', 'Japanese', 'Korean'];
+const LEVELS = ['Beginner', 'Elementary', 'Intermediate', 'Advanced', 'Fluent'];
+const GOALS = ['Career Growth', 'Travel', 'Self-Improvement', 'Exam Prep', 'Socializing'];
 
 export default function ProfilePage() {
   const { toast } = useToast();
@@ -33,6 +37,7 @@ export default function ProfilePage() {
   const [userAvatar, setUserAvatar] = useState('👤');
   const [language, setLanguage] = useState('English');
   const [level, setLevel] = useState('Intermediate');
+  const [goal, setGoal] = useState('Career Growth');
   const [isSaved, setIsSaved] = useState(false);
   const [userStats, setUserStats] = useState({
     sessions: '0',
@@ -47,6 +52,12 @@ export default function ProfilePage() {
     const savedAvatar = localStorage.getItem('USER_AVATAR');
     if (savedAvatar) setUserAvatar(savedAvatar);
 
+    const savedLevel = localStorage.getItem('USER_LEVEL');
+    if (savedLevel) setLevel(savedLevel);
+
+    const savedGoal = localStorage.getItem('USER_GOAL');
+    if (savedGoal) setGoal(savedGoal);
+
     // Load actual stats
     setUserStats({
       sessions: localStorage.getItem('SESSIONS_COUNT') || '0',
@@ -58,6 +69,8 @@ export default function ProfilePage() {
   const handleSave = () => {
     localStorage.setItem('USER_NAME', userName);
     localStorage.setItem('USER_AVATAR', userAvatar);
+    localStorage.setItem('USER_LEVEL', level);
+    localStorage.setItem('USER_GOAL', goal);
     setIsSaved(true);
     toast({
       title: "Profile Updated",
@@ -71,9 +84,6 @@ export default function ProfilePage() {
     { label: 'Minutes', value: userStats.minutes, icon: <Clock className="h-4 w-4 text-blue-400" /> },
     { label: 'Day Streak', value: userStats.streak, icon: <Flame className="h-4 w-4 text-orange-400" /> },
   ];
-
-  const languages = ['English', 'Spanish', 'French', 'German', 'Japanese', 'Korean'];
-  const levels = ['Beginner', 'Elementary', 'Intermediate', 'Advanced', 'Fluent'];
 
   const streakProgress = Math.min((parseInt(userStats.streak) / 7) * 100, 100);
 
@@ -109,7 +119,7 @@ export default function ProfilePage() {
             </div>
             <div className="text-center">
               <h2 className="text-2xl font-bold">{userName || 'User'}</h2>
-              <p className="text-xs text-muted-foreground uppercase tracking-widest font-bold">Language Enthusiast</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-widest font-bold">{goal}</p>
             </div>
           </div>
 
@@ -207,7 +217,7 @@ export default function ProfilePage() {
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Practicing</label>
                   <div className="flex flex-wrap gap-2">
-                    {languages.map((lang) => (
+                    {LANGUAGES.map((lang) => (
                       <button
                         key={lang}
                         onClick={() => setLanguage(lang)}
@@ -227,10 +237,13 @@ export default function ProfilePage() {
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Current Level</label>
                   <div className="flex flex-wrap gap-2">
-                    {levels.map((l) => (
+                    {LEVELS.map((l) => (
                       <button
                         key={l}
-                        onClick={() => setLevel(l)}
+                        onClick={() => {
+                          setLevel(l);
+                          if (isSaved) setIsSaved(false);
+                        }}
                         className={cn(
                           "px-3 py-1.5 rounded-xl text-xs font-bold transition-all border border-white/5",
                           level === l 
@@ -239,6 +252,29 @@ export default function ProfilePage() {
                         )}
                       >
                         {l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Main Goal</label>
+                  <div className="flex flex-wrap gap-2">
+                    {GOALS.map((g) => (
+                      <button
+                        key={g}
+                        onClick={() => {
+                          setGoal(g);
+                          if (isSaved) setIsSaved(false);
+                        }}
+                        className={cn(
+                          "px-3 py-1.5 rounded-xl text-xs font-bold transition-all border border-white/5",
+                          goal === g 
+                            ? "bg-primary text-white border-primary shadow-lg shadow-primary/20" 
+                            : "bg-[#0B121F] text-muted-foreground hover:bg-[#1A2333] hover:text-white"
+                        )}
+                      >
+                        {g}
                       </button>
                     ))}
                   </div>

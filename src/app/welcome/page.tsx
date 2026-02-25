@@ -14,12 +14,16 @@ import {
   CheckCircle2,
   UserCircle2,
   AlertCircle,
-  Smile
+  Smile,
+  Target,
+  BarChart3
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
 const AVATARS = ['👤', '🧑‍🚀', '🧛', '🧙', '🦒', '🦊', '🦉', '🎨', '🎭', '🎮', '🎸', '🚀'];
+const LEVELS = ['Beginner', 'Elementary', 'Intermediate', 'Advanced', 'Fluent'];
+const GOALS = ['Career Growth', 'Travel', 'Self-Improvement', 'Exam Prep', 'Socializing'];
 
 const TOUR_STEPS = [
   {
@@ -63,6 +67,13 @@ const TOUR_STEPS = [
     description: 'Pick an avatar that matches your vibe!',
     icon: <Smile className="h-12 w-12 text-primary" />,
     color: 'from-yellow-500/20 to-transparent'
+  },
+  {
+    id: 'experience',
+    title: 'Personalize Your Journey',
+    description: 'Tell us about your experience so we can tailor the AI tutor to your needs.',
+    icon: <BarChart3 className="h-12 w-12 text-primary" />,
+    color: 'from-blue-500/20 to-transparent'
   }
 ];
 
@@ -72,6 +83,8 @@ export default function WelcomeTour() {
   const [currentStep, setCurrentStep] = useState(0);
   const [userName, setUserName] = useState('');
   const [userAvatar, setUserAvatar] = useState('👤');
+  const [userLevel, setUserLevel] = useState('Intermediate');
+  const [userGoal, setUserGoal] = useState('Career Growth');
   const [isError, setIsError] = useState(false);
   
   const progress = ((currentStep + 1) / TOUR_STEPS.length) * 100;
@@ -111,6 +124,8 @@ export default function WelcomeTour() {
     
     localStorage.setItem('USER_NAME', trimmedName);
     localStorage.setItem('USER_AVATAR', userAvatar);
+    localStorage.setItem('USER_LEVEL', userLevel);
+    localStorage.setItem('USER_GOAL', userGoal);
     
     if (!localStorage.getItem('SESSIONS_COUNT')) localStorage.setItem('SESSIONS_COUNT', '0');
     if (!localStorage.getItem('TOTAL_MINUTES')) localStorage.setItem('TOTAL_MINUTES', '0');
@@ -215,6 +230,54 @@ export default function WelcomeTour() {
                           {emoji}
                         </button>
                       ))}
+                    </div>
+                  </div>
+                )}
+
+                {step.id === 'experience' && (
+                  <div className="w-full space-y-6 pt-4 mb-8">
+                    <div className="space-y-3 text-left">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground px-1 flex items-center gap-2">
+                        <BarChart3 className="h-3 w-3" /> Current Level
+                      </label>
+                      <div className="flex flex-wrap gap-2">
+                        {LEVELS.map((level) => (
+                          <button
+                            key={level}
+                            onClick={() => setUserLevel(level)}
+                            className={cn(
+                              "px-4 py-2 rounded-xl text-xs font-bold transition-all border border-white/5",
+                              userLevel === level 
+                                ? "bg-primary text-white border-primary shadow-lg shadow-primary/20" 
+                                : "bg-[#1A2333] text-muted-foreground hover:bg-white/5"
+                            )}
+                          >
+                            {level}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-3 text-left">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground px-1 flex items-center gap-2">
+                        <Target className="h-3 w-3" /> Learning Goal
+                      </label>
+                      <div className="flex flex-wrap gap-2">
+                        {GOALS.map((goal) => (
+                          <button
+                            key={goal}
+                            onClick={() => setUserGoal(goal)}
+                            className={cn(
+                              "px-4 py-2 rounded-xl text-xs font-bold transition-all border border-white/5",
+                              userGoal === goal 
+                                ? "bg-[#1D7AFC] text-white border-[#1D7AFC] shadow-lg shadow-blue-500/20" 
+                                : "bg-[#1A2333] text-muted-foreground hover:bg-white/5"
+                            )}
+                          >
+                            {goal}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 )}
