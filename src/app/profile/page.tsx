@@ -8,19 +8,21 @@ import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { 
-  ChevronLeft, 
-  Target, 
-  Flame, 
-  Trophy, 
-  Clock, 
+import {
+  ChevronLeft,
+  Target,
+  Flame,
+  Trophy,
+  Clock,
   Zap,
   Globe,
   LogOut,
   Save,
   CheckCircle2,
   Smile,
-  BarChart3
+  BarChart3,
+  Crown,
+  Sparkles
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -39,6 +41,7 @@ export default function ProfilePage() {
   const [level, setLevel] = useState('Intermediate');
   const [goal, setGoal] = useState('Career Growth');
   const [isSaved, setIsSaved] = useState(false);
+  const [subscriptionPlan, setSubscriptionPlan] = useState<'basic' | 'pro'>('basic');
   const [userStats, setUserStats] = useState({
     sessions: '0',
     minutes: '0',
@@ -57,6 +60,9 @@ export default function ProfilePage() {
 
     const savedGoal = localStorage.getItem('USER_GOAL');
     if (savedGoal) setGoal(savedGoal);
+
+    const savedPlan = localStorage.getItem('SUBSCRIPTION_PLAN');
+    if (savedPlan === 'pro') setSubscriptionPlan('pro');
 
     // Load actual stats
     setUserStats({
@@ -137,6 +143,67 @@ export default function ProfilePage() {
               </Card>
             ))}
           </div>
+
+          {/* Subscription Card */}
+          <section className="space-y-4">
+            <div className="flex items-center gap-2 text-primary font-bold">
+              <Crown className="h-5 w-5" />
+              <h3>Subscription Plan</h3>
+            </div>
+            <Card className={cn(
+              "border-2 transition-all duration-300",
+              subscriptionPlan === 'pro' 
+                ? "border-yellow-500 bg-gradient-to-r from-yellow-500/10 to-orange-500/10" 
+                : "border-border bg-card"
+            )}>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className={cn(
+                      "p-3 rounded-xl",
+                      subscriptionPlan === 'pro' 
+                        ? "bg-yellow-500/20" 
+                        : "bg-muted"
+                    )}>
+                      {subscriptionPlan === 'pro' ? (
+                        <Crown className="h-6 w-6 text-yellow-500" />
+                      ) : (
+                        <Globe className="h-6 w-6 text-muted-foreground" />
+                      )}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="font-black text-foreground">
+                          {subscriptionPlan === 'pro' ? 'Pro Plan' : 'Basic Plan'}
+                        </p>
+                        {subscriptionPlan === 'pro' && (
+                          <Badge className="bg-yellow-500 text-white border-none font-bold text-xs">
+                            ACTIVE
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {subscriptionPlan === 'pro' 
+                          ? 'Access to all premium features' 
+                          : 'Upgrade to unlock Battle Mode'}
+                      </p>
+                    </div>
+                  </div>
+                  {subscriptionPlan === 'basic' && (
+                    <Button
+                      asChild
+                      className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white font-bold rounded-xl px-6 shadow-lg shadow-orange-500/30"
+                    >
+                      <Link href="/pricing">
+                        <Sparkles className="h-4 w-4 mr-2" />
+                        Upgrade
+                      </Link>
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </section>
 
           {/* Learning Goals */}
           <section className="space-y-4">
