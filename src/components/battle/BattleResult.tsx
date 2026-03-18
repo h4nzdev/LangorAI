@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Trophy, Award, TrendingUp, Zap, RotateCcw, Home } from 'lucide-react';
+import { Trophy, Award, TrendingUp, Zap, RotateCcw, Home, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface BattleResultProps {
@@ -29,14 +29,25 @@ export function BattleResult({
   const isDraw = winner === 'draw';
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6">
-      <div className="w-full max-w-lg space-y-6">
+    <div className="fixed inset-0 bg-background overflow-auto">
+      {/* Session Lock Indicator - Still locked until action taken */}
+      <div className="fixed bottom-6 right-6 z-50">
+        <div className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3">
+          <Lock className="h-5 w-5 fill-white" />
+          <span className="font-bold text-sm uppercase tracking-widest">
+            Session Locked
+          </span>
+        </div>
+      </div>
+
+      <div className="min-h-screen flex items-center justify-center p-6 pt-20 pb-32">
+        <div className="w-full max-w-lg space-y-6">
         {/* Result Header */}
         <div className="text-center space-y-4">
           <div className={cn(
             "inline-flex items-center justify-center w-24 h-24 rounded-3xl shadow-2xl transition-all",
             isWin 
-              ? "bg-gradient-to-br from-yellow-400 to-orange-500 shadow-yellow-500/30 animate-bounce" 
+              ? "bg-gradient-to-br from-yellow-400 to-orange-500 shadow-yellow-500/30 animate" 
               : isDraw
                 ? "bg-gradient-to-br from-gray-400 to-gray-500 shadow-gray-500/30"
                 : "bg-gradient-to-br from-red-400 to-red-500 shadow-red-500/30"
@@ -167,6 +178,7 @@ export function BattleResult({
             Menu
           </Button>
         </div>
+      </div>
       </div>
     </div>
   );

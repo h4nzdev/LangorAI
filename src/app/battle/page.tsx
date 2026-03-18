@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { BattleMenu, Matchmaking, BattleRoom, BattleResult } from '@/components/battle';
 import { Navigation } from '@/components/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Crown, Zap } from 'lucide-react';
+import { Crown, Zap, AlertTriangle, Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 type BattleStatus = 'menu' | 'matchmaking' | 'battle' | 'result';
 
@@ -40,6 +41,12 @@ export default function BattlePage() {
     totalBattles: 0
   });
   const [subscriptionPlan, setSubscriptionPlan] = useState<'basic' | 'pro'>('basic');
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [fullscreenError, setFullscreenError] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Check if battle is in progress (locked state)
+  const isBattleInProgress = battleStatus === 'battle' || battleStatus === 'matchmaking';
 
   useEffect(() => {
     // Load user's battle stats from localStorage
@@ -47,13 +54,97 @@ export default function BattlePage() {
     if (savedStats) {
       setUserStats(JSON.parse(savedStats));
     }
-    
+
     // Load subscription plan
     const savedPlan = localStorage.getItem('SUBSCRIPTION_PLAN');
     if (savedPlan === 'pro') {
       setSubscriptionPlan('pro');
     }
+    
+    setIsLoading(false);
   }, []);
+
+  // Request fullscreen when battle starts
+  useEffect(() => {
+    if (battleStatus === 'battle' && !isFullscreen) {
+      enterFullscreen();
+    }
+
+    // Cleanup on unmount
+    return () => {
+      if (isFullscreen) {
+        exitFullscreen();
+      }
+    };
+  }, [battleStatus]);
+
+  // Handle fullscreen change events
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  // Prevent back button during battle
+  useEffect(() => {
+    if (isBattleInProgress) {
+      const preventBack = () => {
+        history.pushState(null, '', window.location.href);
+      };
+
+      history.pushState(null, '', window.location.href);
+      window.addEventListener('popstate', preventBack);
+
+      return () => {
+        window.removeEventListener('popstate', preventBack);
+      };
+    }
+  }, [isBattleInProgress]);
+
+  // Prevent page close/refresh during battle
+  useEffect(() => {
+    if (isBattleInProgress) {
+      const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+        e.preventDefault();
+        e.returnValue = '';
+        return '';
+      };
+
+      window.addEventListener('beforeunload', handleBeforeUnload);
+
+      return () => {
+        window.removeEventListener('beforeunload', handleBeforeUnload);
+      };
+    }
+  }, [isBattleInProgress]);
+
+  const enterFullscreen = async () => {
+    try {
+      const elem = document.documentElement;
+      if (elem.requestFullscreen) {
+        await elem.requestFullscreen();
+        setIsFullscreen(true);
+        setFullscreenError(false);
+      }
+    } catch (err) {
+      console.error('Fullscreen error:', err);
+      setFullscreenError(true);
+    }
+  };
+
+  const exitFullscreen = async () => {
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+        setIsFullscreen(false);
+      }
+    } catch (err) {
+      console.error('Exit fullscreen error:', err);
+    }
+  };
 
   const handleStartMatchmaking = (limit: number, mode: string) => {
     setErrorLimit(limit);
@@ -88,16 +179,48 @@ export default function BattlePage() {
   };
 
   const handleReturnToMenu = () => {
+    exitFullscreen();
     setResult(null);
     setBattleStatus('menu');
   };
 
   return (
     <div className="min-h-screen bg-background">
-      <Navigation />
+      {/* Hide navigation during battle */}
+      {!isBattleInProgress && <Navigation />}
 
-      <main className="md:pl-64">
-        {subscriptionPlan === 'basic' ? (
+      <main className={cn(
+        "min-h-screen",
+        !isBattleInProgress && "md:pl-64"
+      )}>
+        {/* Fullscreen Warning Banner */}
+        {isBattleInProgress && (
+          <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-yellow-500 to-orange-500 text-white px-4 py-3 flex items-center justify-center gap-3 shadow-lg">
+            <AlertTriangle className="h-5 w-5" />
+            <span className="font-bold text-sm uppercase tracking-widest">
+              Battle in Progress - Cannot Exit Until Session Ends
+            </span>
+          </div>
+        )}
+
+        {/* Fullscreen Error Notice */}
+        {fullscreenError && isBattleInProgress && (
+          <div className="fixed top-12 left-0 right-0 z-50 bg-destructive text-white px-4 py-2 text-center text-sm font-bold">
+            Fullscreen failed. Please enable fullscreen manually for the best experience.
+          </div>
+        )}
+
+        {/* Loading State */}
+        {isLoading ? (
+          <div className="min-h-screen flex items-center justify-center">
+            <div className="text-center space-y-4">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/20">
+                <Loader2 className="h-8 w-8 text-primary animate-spin" />
+              </div>
+              <p className="text-muted-foreground font-medium">Loading Battle Mode...</p>
+            </div>
+          </div>
+        ) : subscriptionPlan === 'basic' ? (
           <div className="min-h-screen flex items-center justify-center p-6">
             <div className="w-full max-w-lg space-y-8">
               {/* Header */}

@@ -3,7 +3,7 @@ import { PlayerCard } from './PlayerCard';
 import { ErrorCounter } from './ErrorCounter';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Mic, MicOff, Volume2, MessageSquare } from 'lucide-react';
+import { Mic, MicOff, Volume2, MessageSquare, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface BattleRoomProps {
@@ -110,8 +110,19 @@ export function BattleRoom({ errorLimit, onBattleEnd }: BattleRoomProps) {
   }, [errorLimit, playerErrors]);
 
   return (
-    <div className="min-h-screen p-6 pb-24">
-      <div className="max-w-4xl mx-auto space-y-6">
+    <div className="fixed inset-0 bg-background overflow-auto">
+      {/* Locked Session Indicator */}
+      <div className="fixed bottom-6 right-6 z-50">
+        <div className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 animate-pulse">
+          <Lock className="h-5 w-5 fill-white" />
+          <span className="font-bold text-sm uppercase tracking-widest">
+            Session Locked
+          </span>
+        </div>
+      </div>
+
+      <div className="min-h-screen p-6 pt-20 pb-32">
+        <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <div className="text-center space-y-2">
           <h1 className="text-2xl md:text-3xl font-black tracking-tight text-foreground">
@@ -266,6 +277,7 @@ export function BattleRoom({ errorLimit, onBattleEnd }: BattleRoomProps) {
             </CardContent>
           </Card>
         </div>
+      </div>
       </div>
     </div>
   );

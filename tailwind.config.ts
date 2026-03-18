@@ -88,10 +88,15 @@ export default {
             height: '0',
           },
         },
+        'music-wave': {
+          '0%, 100%': { height: '8px' },
+          '50%': { height: '20px' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
+        'music-wave': 'music-wave 0.5s ease-in-out infinite',
       },
     },
   },

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Loader2, Wifi, Users, Clock } from 'lucide-react';
+import { Loader2, Wifi, Users, Clock, Lock } from 'lucide-react';
 
 interface MatchmakingProps {
   onMatchFound: () => void;
@@ -32,8 +32,19 @@ export function Matchmaking({ onMatchFound }: MatchmakingProps) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6">
-      <div className="w-full max-w-md space-y-8">
+    <div className="fixed inset-0 bg-background overflow-auto">
+      {/* Session Lock Indicator */}
+      <div className="fixed bottom-6 right-6 z-50">
+        <div className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 animate-pulse">
+          <Lock className="h-5 w-5 fill-white" />
+          <span className="font-bold text-sm uppercase tracking-widest">
+            Session Locked
+          </span>
+        </div>
+      </div>
+
+      <div className="min-h-screen flex items-center justify-center p-6 pt-20 pb-32">
+        <div className="w-full max-w-md space-y-8">
         {/* Header */}
         <div className="text-center space-y-4">
           <div className="relative inline-flex">
@@ -108,6 +119,7 @@ export function Matchmaking({ onMatchFound }: MatchmakingProps) {
             💡 Tip: Warm up your voice while waiting!
           </p>
         </div>
+      </div>
       </div>
     </div>
   );

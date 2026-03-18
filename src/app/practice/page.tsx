@@ -3,24 +3,28 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { 
-  ChevronLeft, 
-  Mic, 
-  MicOff, 
-  PhoneOff, 
+import {
+  ChevronLeft,
+  Mic,
+  MicOff,
+  PhoneOff,
   Sparkles,
   Loader2,
   AlertCircle,
   Settings,
   Bot,
   Activity,
-  History
+  History,
+  User,
+  MessageCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { startPracticeSession, summarizeSession, type PracticeOutput } from '@/ai/flows/practice-flow';
+import avatarImage from '@/assets/avatar1.png';
 
 interface SpeechRecognitionEvent extends Event {
   results: SpeechRecognitionResultList;
@@ -50,6 +54,9 @@ export default function PracticeSession() {
   const [history, setHistory] = useState<{role: 'user' | 'model', text: string}[]>([]);
   const [errorStatus, setErrorStatus] = useState<'none' | 'generic' | 'api-key' | 'quota'>('none');
   const [startTime] = useState(Date.now());
+  const [chatMessages, setChatMessages] = useState<{id: number; role: 'user' | 'ai'; text: string; timestamp: Date}[]>([]);
+  const [displayedAiText, setDisplayedAiText] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
   
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const isMutedRef = useRef(isMuted);
@@ -57,6 +64,26 @@ export default function PracticeSession() {
 
   useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
   useEffect(() => { isEndingRef.current = isEnding; }, [isEnding]);
+
+  // Typing effect for AI responses
+  useEffect(() => {
+    if (aiResponseText && !isTyping) {
+      setIsTyping(true);
+      setDisplayedAiText("");
+      let index = 0;
+      const typingInterval = setInterval(() => {
+        if (index < aiResponseText.length) {
+          setDisplayedAiText(aiResponseText.slice(0, index + 1));
+          index++;
+        } else {
+          clearInterval(typingInterval);
+          setIsTyping(false);
+        }
+      }, 30); // Typing speed
+
+      return () => clearInterval(typingInterval);
+    }
+  }, [aiResponseText]);
 
   useEffect(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -122,7 +149,12 @@ export default function PracticeSession() {
   const handleUserSpeech = async (text: string) => {
     setIsThinking(true);
     setErrorStatus('none');
-    
+    setDisplayedAiText(""); // Reset typing display
+
+    // Add user message to chat
+    const userMsgId = Date.now();
+    setChatMessages(prev => [...prev, { id: userMsgId, role: 'user', text, timestamp: new Date() }]);
+
     // 3 second conversational delay
     await new Promise(resolve => setTimeout(resolve, 3000));
 
@@ -130,21 +162,26 @@ export default function PracticeSession() {
     const currentHistory = [...history, { role: 'user' as const, text }];
 
     try {
-      const result = await startPracticeSession({ 
+      const result = await startPracticeSession({
         userInput: text,
+        topic: 'Hobbies and Interests',
         history: currentHistory,
         apiKey: savedApiKey
       });
-      
+
       setAiResponseText(result.aiResponse);
       setFeedback(result.feedback);
       setHistory([...currentHistory, { role: 'model' as const, text: result.aiResponse }]);
-      
+
+      // Add AI message to chat
+      const aiMsgId = Date.now() + 1;
+      setChatMessages(prev => [...prev, { id: aiMsgId, role: 'ai', text: result.aiResponse, timestamp: new Date() }]);
+
       speakText(result.aiResponse);
     } catch (error: any) {
       console.error("AI Error:", error);
       const msg = error.message?.toLowerCase() || "";
-      
+
       if (msg.includes('api_key') || msg.includes('401') || msg.includes('key')) {
         setErrorStatus('api-key');
       } else if (msg.includes('quota') || msg.includes('exhausted') || msg.includes('429')) {
@@ -152,7 +189,7 @@ export default function PracticeSession() {
       } else {
         setErrorStatus('generic');
       }
-      
+
       setTranscript("Core logic interrupted. Standing by.");
       setIsThinking(false);
     }
@@ -283,122 +320,194 @@ export default function PracticeSession() {
         </div>
       )}
 
-      <main className="flex-1 flex flex-col items-center justify-center px-6 gap-6 md:gap-8">
-        {/* Avatar Section - Animated Pulsing Glow */}
-        <div className="relative group scale-90 md:scale-100">
-          <div className={cn(
-            "absolute -inset-6 bg-accent/20 rounded-full blur-3xl transition-opacity duration-1000",
-            (isThinking || isSpeaking) ? "opacity-100 animate-pulse" : "opacity-0"
-          )} />
-          <div className="relative flex items-center justify-center h-28 w-28 rounded-full border border-accent/30 bg-card/50 backdrop-blur-sm shadow-[inset_0_0_20px_rgba(var(--accent),0.1)]">
-             <div className="absolute inset-0 rounded-full border border-accent/10 scale-125" />
-             <div className="absolute inset-0 rounded-full border border-accent/5 scale-150" />
-             <Bot className={cn(
-               "h-14 w-14 text-accent transition-all duration-500",
-               (isThinking || isSpeaking) && "scale-110 drop-shadow-[0_0_10px_rgba(var(--accent),0.5)]"
-             )} />
-          </div>
-        </div>
+      <main className="flex-1 flex flex-col items-center px-4 md:px-6 gap-4 overflow-hidden relative">
+        {/* Video Call Style Layout */}
+        <div className="w-full max-w-2xl mx-auto flex flex-col items-center gap-6 mt-4">
+          
+          {/* Avatar Video Frame - Centered like a video call */}
+          <div className="relative w-full flex flex-col items-center">
+            {/* Avatar Container with Video Call Frame */}
+            <div className={cn(
+              "relative w-full max-w-md aspect-[3/4] rounded-3xl overflow-hidden border-2 shadow-2xl transition-all duration-500",
+              (isThinking || isSpeaking) 
+                ? "border-accent shadow-[0_0_30px_rgba(var(--accent),0.4)]" 
+                : "border-border/50"
+            )}>
+              {/* Avatar Image */}
+              <Image
+                src={avatarImage}
+                alt="Langor AI Interviewer"
+                fill
+                className="object-cover object-center bg-black"
+                priority
+              />
+              
+              {/* Overlay Gradient */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
+              
+              {/* Status Indicator */}
+              <div className="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 bg-black/40 backdrop-blur-md rounded-full border border-white/10">
+                <div className={cn(
+                  "h-2 w-2 rounded-full animate-pulse",
+                  isThinking ? "bg-primary" : isSpeaking ? "bg-emerald-500" : "bg-muted-foreground"
+                )} />
+                <span className="text-[9px] font-black tracking-[0.2em] uppercase text-white">
+                  {isThinking ? 'THINKING' : isSpeaking ? 'SPEAKING' : 'LISTENING'}
+                </span>
+              </div>
 
-        {/* AI Title */}
-        <div className="text-center space-y-1">
-          <h2 className="text-lg font-black tracking-[0.15em] uppercase text-foreground">Langor-4 AI</h2>
-          {isListening ? (
-            <p className="text-accent text-[9px] font-black tracking-[0.25em] uppercase animate-pulse">Processing Voice...</p>
-          ) : isThinking ? (
-            <p className="text-primary text-[9px] font-black tracking-[0.25em] uppercase animate-pulse">Neural Computing...</p>
-          ) : isSpeaking ? (
-            <p className="text-emerald-500 text-[9px] font-black tracking-[0.25em] uppercase">Synthesizing Audio...</p>
-          ) : (
-            <p className="text-muted-foreground text-[9px] font-black tracking-[0.25em] uppercase">Standby Mode</p>
+              {/* AI Name Badge */}
+              <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between">
+                <div className="flex items-center gap-2 px-3 py-2 bg-black/40 backdrop-blur-md rounded-xl border border-white/10">
+                  <div className="h-8 w-8 rounded-full bg-accent/20 flex items-center justify-center border border-accent/30">
+                    <User className="h-4 w-4 text-accent" />
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-black tracking-[0.15em] uppercase text-white">Langor AI</p>
+                    <p className="text-[7px] text-white/60 uppercase tracking-wider">Interviewer</p>
+                  </div>
+                </div>
+                
+                {/* Speaking Wave Animation */}
+                {isSpeaking && (
+                  <div className="flex items-center gap-0.5">
+                    {[...Array(4)].map((_, i) => (
+                      <div
+                        key={i}
+                        className="w-1 bg-accent rounded-full animate-[music-wave_0.5s_ease-in-out_infinite]"
+                        style={{
+                          height: '16px',
+                          animationDelay: `${i * 0.1}s`,
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Thinking/Speaking Glow Effect */}
+              {(isThinking || isSpeaking) && (
+                <div className="absolute inset-0 border-2 border-accent/30 rounded-3xl animate-pulse pointer-events-none" />
+              )}
+            </div>
+
+            {/* Chat Bubble - AI Response */}
+            <div className="w-full max-w-md mt-4">
+              <div className={cn(
+                "bg-card/60 backdrop-blur-xl border border-accent/20 rounded-2xl p-4 shadow-xl transition-all duration-300",
+                chatMessages.length === 0 && "opacity-40"
+              )}>
+                {chatMessages.length > 0 ? (
+                  <div className="space-y-2">
+                    {/* Real-time typing effect for AI response */}
+                    {displayedAiText ? (
+                      <p className="text-sm font-medium text-foreground leading-relaxed">
+                        {displayedAiText}
+                        {isTyping && (
+                          <span className="inline-block w-2 h-4 ml-1 bg-accent animate-pulse align-middle" />
+                        )}
+                      </p>
+                    ) : (
+                      chatMessages.filter(m => m.role === 'ai').slice(-1).map((msg) => (
+                        <p key={msg.id} className="text-sm font-medium text-foreground leading-relaxed">
+                          {msg.text}
+                        </p>
+                      ))
+                    )}
+                    
+                    {/* Typing dots when thinking */}
+                    {isThinking && !displayedAiText && (
+                      <div className="flex items-center gap-1">
+                        <div className="h-1.5 w-1.5 bg-accent rounded-full animate-bounce [animation-delay:0ms]" />
+                        <div className="h-1.5 w-1.5 bg-accent rounded-full animate-bounce [animation-delay:150ms]" />
+                        <div className="h-1.5 w-1.5 bg-accent rounded-full animate-bounce [animation-delay:300ms]" />
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic text-center">
+                    AI is ready to start the interview...
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Conversation History - Compact */}
+          {chatMessages.length > 1 && (
+            <div className="w-full max-w-md space-y-2">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="h-px flex-1 bg-border/50" />
+                <span className="text-[8px] font-black tracking-[0.2em] uppercase text-muted-foreground">Session Log</span>
+                <div className="h-px flex-1 bg-border/50" />
+              </div>
+              <div className="max-h-24 overflow-y-auto space-y-1.5 pr-1 scrollbar-thin scrollbar-thumb-accent/20 scrollbar-track-transparent">
+                {chatMessages.slice(0, -1).slice(-2).map((msg) => (
+                  <div
+                    key={msg.id}
+                    className={cn(
+                      "text-[9px] p-2 rounded-lg border",
+                      msg.role === 'user' 
+                        ? "bg-primary/5 border-primary/10 text-muted-foreground" 
+                        : "bg-accent/5 border-accent/10 text-foreground/70"
+                    )}
+                  >
+                    <span className="font-black uppercase tracking-wider opacity-60 mr-1">
+                      {msg.role === 'user' ? 'You:' : 'AI:'}
+                    </span>
+                    <span className="truncate">{msg.text}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </div>
 
         {/* Visualizer & Mic - Sonar/Radar Animation */}
-        <div className="relative flex items-center justify-center w-full h-48">
+        <div className="relative flex items-center justify-center w-full h-40 mt-2">
           <div className={cn(
-            "absolute h-48 w-48 border border-accent/10 rounded-full transition-transform duration-1000",
+            "absolute h-40 w-40 border border-accent/10 rounded-full transition-transform duration-1000",
             isListening && "scale-110 border-accent/20"
           )} />
           <div className={cn(
-            "absolute h-36 w-36 border border-accent/20 rounded-full transition-transform duration-700",
+            "absolute h-32 w-32 border border-accent/20 rounded-full transition-transform duration-700",
             isListening && "scale-110 border-accent/40"
           )} />
-          
+
           {isListening && (
             <>
-              <div className="absolute w-36 h-36 border border-accent/30 rounded-full animate-ping [animation-duration:2s]" />
-              <div className="absolute w-48 h-48 border border-accent/10 rounded-full animate-ping [animation-duration:3s]" />
+              <div className="absolute w-32 h-32 border border-accent/30 rounded-full animate-ping [animation-duration:2s]" />
+              <div className="absolute w-40 h-40 border border-accent/10 rounded-full animate-ping [animation-duration:3s]" />
             </>
           )}
-          
-          <Button 
-            size="icon" 
+
+          <Button
+            size="icon"
             onClick={toggleListening}
             disabled={isMicDisabled}
             className={cn(
-              "h-20 w-20 rounded-full transition-all duration-300 shadow-[0_0_20px_rgba(var(--accent),0.2)] z-10 border-2",
-              isListening 
-                ? "bg-destructive/10 border-destructive text-destructive scale-105" 
+              "h-16 w-16 rounded-full transition-all duration-300 shadow-[0_0_20px_rgba(var(--accent),0.2)] z-10 border-2",
+              isListening
+                ? "bg-destructive/10 border-destructive text-destructive scale-105"
                 : "bg-accent/10 border-accent text-accent hover:bg-accent/20",
               isMicDisabled && "opacity-20 grayscale border-border"
             )}
           >
             {isThinking || isEnding ? (
-              <Loader2 className="h-8 w-8 animate-spin" />
+              <Loader2 className="h-6 w-6 animate-spin" />
             ) : isSpeaking ? (
-              <Activity className="h-8 w-8 animate-pulse" />
+              <Activity className="h-6 w-6 animate-pulse" />
             ) : (
-              <Mic className={cn("h-8 w-8", isListening && "fill-current")} />
+              <Mic className={cn("h-6 w-6", isListening && "fill-current")} />
             )}
           </Button>
         </div>
 
-        {/* User Transcript View - Tightened */}
-        <div className="max-w-xs text-center min-h-[2.5rem] px-4">
+        {/* User Transcript View */}
+        <div className="max-w-xs text-center min-h-[2rem] px-4">
           <p className="text-xs font-medium text-foreground/70 leading-relaxed italic tracking-wide">
             "{transcript}"
           </p>
-        </div>
-
-        {/* AI Output Card - Animated Slide-In */}
-        <div className="w-full max-w-sm px-4">
-          {feedback && feedback.hasCorrection ? (
-             <div className="bg-card/40 backdrop-blur-xl border border-accent/20 rounded-2xl p-5 shadow-2xl space-y-3 animate-in slide-in-from-bottom-4 duration-500">
-               <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="p-1.5 bg-accent/20 rounded-lg">
-                      <Sparkles className="h-3 w-3 text-accent" />
-                    </div>
-                    <h3 className="font-black text-[9px] uppercase tracking-widest text-accent">Neural Correction</h3>
-                  </div>
-                  <span className="text-[8px] font-mono text-muted-foreground uppercase opacity-50">ID: {Math.floor(Math.random()*900+100)}-FX</span>
-               </div>
-               
-               <div className="space-y-2 pt-1">
-                 <p className="text-[10px] text-muted-foreground leading-relaxed">
-                   Syntax variance detected in <span className="text-destructive font-bold">"{feedback.originalText}"</span>.
-                 </p>
-                 <p className="text-[10px] text-foreground font-bold leading-relaxed">
-                   Optimization suggested: <span className="text-accent">"{feedback.correctedText}"</span>.
-                 </p>
-                 <div className="flex items-center justify-between pt-1">
-                    <p className="text-[8px] text-muted-foreground italic opacity-70">
-                      {feedback.explanation}
-                    </p>
-                    <span className="text-[8px] font-black uppercase tracking-tighter text-accent/60 flex items-center gap-1 cursor-pointer hover:text-accent transition-colors">
-                      View Logs <ChevronLeft className="h-2 w-2 rotate-180" />
-                    </span>
-                 </div>
-               </div>
-             </div>
-          ) : (
-            <div className="text-center px-4 animate-in fade-in duration-500">
-              <p className="text-base font-bold text-foreground leading-tight tracking-tight">
-                "{aiResponseText}"
-              </p>
-            </div>
-          )}
         </div>
       </main>
 
