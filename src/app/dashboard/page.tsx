@@ -257,7 +257,7 @@ export default function Dashboard() {
                 {recommendations.length > 0 ? recommendations.map((item) => {
                   const img = PlaceHolderImages.find(p => p.id === item.imageId);
                   return (
-                    <Link key={item.id} href="/practice" className="block">
+                    <Link key={item.id} href={`/practice/roadmap/${item.id}`} className="block">
                       <Card className="bg-card border-none overflow-hidden hover:ring-2 ring-primary/50 transition-all cursor-pointer shadow-lg group h-full">
                         <div className="relative aspect-video w-full overflow-hidden">
                           {img && (
