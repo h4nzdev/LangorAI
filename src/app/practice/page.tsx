@@ -170,6 +170,7 @@ export default function PracticeSession() {
       const result = await startPracticeSession({
         userInput: text,
         topic: topicParam,
+        interviewer: interviewerParam,
         history: currentHistory,
         apiKey: savedApiKey
       });
@@ -185,10 +186,10 @@ export default function PracticeSession() {
     } catch (error: any) {
       console.error("AI Error:", error);
       const msg = error.message?.toLowerCase() || "";
-      if (msg.includes('api_key') || msg.includes('401') || msg.includes('key')) {
-        setErrorStatus('api-key');
-      } else if (msg.includes('quota') || msg.includes('exhausted') || msg.includes('429')) {
+      if (msg.includes('quota') || msg.includes('exhausted') || msg.includes('429')) {
         setErrorStatus('quota');
+      } else if (msg.includes('api_key') || msg.includes('401') || msg.includes('key')) {
+        setErrorStatus('api-key');
       } else {
         setErrorStatus('generic');
       }
@@ -288,7 +289,9 @@ export default function PracticeSession() {
             <AlertCircle className="h-3 w-3" />
             <AlertTitle className="text-[9px] font-black uppercase tracking-wider">Protocol Interrupted</AlertTitle>
             <AlertDescription className="text-[8px] opacity-80 mt-0.5">
-              API limits reached. Provide a personal key in settings to bypass.
+              {errorStatus === 'quota' 
+                ? 'Free API quota exceeded. Add your own API key in settings to continue.' 
+                : 'Neural Link failed. Please check your Gemini API key in settings.'}
             </AlertDescription>
           </Alert>
         </div>
