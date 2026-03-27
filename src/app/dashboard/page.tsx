@@ -26,7 +26,9 @@ import {
   ChevronRight,
   User,
   MessageSquare,
-  Bot
+  AlertCircle,
+  Settings as SettingsIcon,
+  ShieldAlert
 } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { cn } from '@/lib/utils';
@@ -86,6 +88,7 @@ export default function Dashboard() {
   const [selectedInterviewer, setSelectedInterviewer] = useState(INTERVIEWERS[0].id);
   const [selectedScenario, setSelectedScenario] = useState(SCENARIOS[0].id);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [hasApiKey, setHasApiKey] = useState(true);
 
   useEffect(() => {
     const savedName = localStorage.getItem('USER_NAME');
@@ -105,6 +108,10 @@ export default function Dashboard() {
     const calculatedConfidence = Math.min(sessions * 5, 100);
 
     setStats({ streak, sessions, confidence: calculatedConfidence });
+
+    // API Key Check
+    const key = localStorage.getItem('GEMINI_API_KEY');
+    setHasApiKey(!!key);
 
     try {
       let filtered = ALL_ACTIVITIES.filter(a => a.goal === savedGoal && a.level === savedLevel);
@@ -241,100 +248,136 @@ export default function Dashboard() {
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-md bg-card border-border rounded-3xl overflow-hidden p-0 gap-0">
-                <div className="bg-primary/5 p-6 border-b border-border/50">
-                  <DialogHeader>
-                    <div className="flex items-center gap-2 mb-1">
-                      <div className="h-1.5 w-1.5 bg-primary rounded-full animate-pulse" />
-                      <span className="text-[10px] font-black uppercase tracking-widest text-primary">Neural Link Setup</span>
+                {!hasApiKey ? (
+                  <div className="p-0">
+                    <div className="bg-destructive/10 p-8 flex flex-col items-center text-center space-y-4 border-b border-border/50">
+                      <div className="h-20 w-20 rounded-3xl bg-destructive/20 flex items-center justify-center text-destructive border-2 border-destructive/30 animate-pulse">
+                        <ShieldAlert className="h-10 w-10" />
+                      </div>
+                      <div className="space-y-1">
+                        <h2 className="text-2xl font-black text-foreground uppercase tracking-tight">Neural Link Failed</h2>
+                        <div className="flex items-center justify-center gap-1.5">
+                          <AlertCircle className="h-3 w-3 text-destructive" />
+                          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-destructive">Error Code: MISSING_UPLINK_KEY</span>
+                        </div>
+                      </div>
                     </div>
-                    <DialogTitle className="text-2xl font-black text-foreground">
-                      {setupStep === 1 ? 'Choose Your Tutor' : 'Select Scene'}
-                    </DialogTitle>
-                  </DialogHeader>
-                </div>
-
-                <div className="p-6 space-y-4">
-                  {setupStep === 1 ? (
-                    <div className="space-y-3">
-                      {INTERVIEWERS.map((i) => (
-                        <button
-                          key={i.id}
-                          onClick={() => setSelectedInterviewer(i.id)}
-                          className={cn(
-                            "w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition-all text-left",
-                            selectedInterviewer === i.id 
-                              ? "bg-primary/5 border-primary shadow-lg shadow-primary/10" 
-                              : "bg-background border-border hover:border-primary/30"
-                          )}
-                        >
-                          <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center text-2xl border border-border">
-                            {i.avatar}
-                          </div>
-                          <div className="flex-1">
-                            <h4 className="font-bold text-foreground">{i.name}</h4>
-                            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-widest">{i.role}</p>
-                            <p className="text-xs text-muted-foreground mt-0.5">{i.description}</p>
-                          </div>
-                          {selectedInterviewer === i.id && <Zap className="h-4 w-4 text-primary fill-current" />}
-                        </button>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 gap-3">
-                      {SCENARIOS.map((s) => (
-                        <button
-                          key={s.id}
-                          onClick={() => setSelectedScenario(s.id)}
-                          className={cn(
-                            "w-full flex items-center gap-4 p-5 rounded-2xl border-2 transition-all text-left",
-                            selectedScenario === s.id 
-                              ? "bg-accent/5 border-accent shadow-lg shadow-accent/10" 
-                              : "bg-background border-border hover:border-accent/30"
-                          )}
-                        >
-                          <div className={cn(
-                            "h-10 w-10 rounded-xl flex items-center justify-center border",
-                            selectedScenario === s.id ? "bg-accent/20 border-accent/40 text-accent" : "bg-muted border-border text-muted-foreground"
-                          )}>
-                            {s.icon}
-                          </div>
-                          <div className="flex-1">
-                            <h4 className="font-bold text-foreground">{s.name}</h4>
-                            <p className="text-xs text-muted-foreground">{s.description}</p>
-                          </div>
-                          {selectedScenario === s.id && <div className="h-2 w-2 rounded-full bg-accent animate-ping" />}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <DialogFooter className="p-6 pt-0">
-                  {setupStep === 1 ? (
-                    <Button 
-                      onClick={() => setSetupStep(2)} 
-                      className="w-full h-12 rounded-xl bg-foreground text-background font-black uppercase tracking-widest gap-2 group"
-                    >
-                      Next: Choose Scene <ChevronRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                    </Button>
-                  ) : (
-                    <div className="flex flex-col gap-2 w-full">
+                    <div className="p-8 space-y-6">
+                      <p className="text-sm text-muted-foreground leading-relaxed font-medium">
+                        Langor AI requires a Google Gemini API Key to establish a real-time neural connection for conversation and grammar analysis.
+                      </p>
+                      <div className="bg-muted/50 p-4 rounded-2xl border border-border/50 space-y-2">
+                        <h4 className="text-[10px] font-black uppercase tracking-widest text-foreground">Action Required</h4>
+                        <p className="text-xs text-muted-foreground italic">"Head to settings to securely input your personal API key from Google AI Studio."</p>
+                      </div>
                       <Button 
-                        onClick={handleStartSession} 
-                        className="w-full h-14 rounded-xl bg-primary text-primary-foreground font-black uppercase tracking-widest gap-2 shadow-xl shadow-primary/20"
+                        asChild
+                        className="w-full h-14 rounded-xl bg-foreground text-background font-black uppercase tracking-widest gap-2 shadow-xl hover:bg-foreground/90"
                       >
-                        <Zap className="h-5 w-5 fill-current" /> Initialize Link
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        onClick={() => setSetupStep(1)} 
-                        className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground h-8"
-                      >
-                        Back to Tutor Selection
+                        <Link href="/settings">
+                          <SettingsIcon className="h-5 w-5" /> Go to Settings
+                        </Link>
                       </Button>
                     </div>
-                  )}
-                </DialogFooter>
+                  </div>
+                ) : (
+                  <>
+                    <div className="bg-primary/5 p-6 border-b border-border/50">
+                      <DialogHeader>
+                        <div className="flex items-center gap-2 mb-1">
+                          <div className="h-1.5 w-1.5 bg-primary rounded-full animate-pulse" />
+                          <span className="text-[10px] font-black uppercase tracking-widest text-primary">Neural Link Setup</span>
+                        </div>
+                        <DialogTitle className="text-2xl font-black text-foreground">
+                          {setupStep === 1 ? 'Choose Your Tutor' : 'Select Scene'}
+                        </DialogTitle>
+                      </DialogHeader>
+                    </div>
+
+                    <div className="p-6 space-y-4">
+                      {setupStep === 1 ? (
+                        <div className="space-y-3">
+                          {INTERVIEWERS.map((i) => (
+                            <button
+                              key={i.id}
+                              onClick={() => setSelectedInterviewer(i.id)}
+                              className={cn(
+                                "w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition-all text-left",
+                                selectedInterviewer === i.id 
+                                  ? "bg-primary/5 border-primary shadow-lg shadow-primary/10" 
+                                  : "bg-background border-border hover:border-primary/30"
+                              )}
+                            >
+                              <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center text-2xl border border-border">
+                                {i.avatar}
+                              </div>
+                              <div className="flex-1">
+                                <h4 className="font-bold text-foreground">{i.name}</h4>
+                                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-widest">{i.role}</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">{i.description}</p>
+                              </div>
+                              {selectedInterviewer === i.id && <Zap className="h-4 w-4 text-primary fill-current" />}
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 gap-3">
+                          {SCENARIOS.map((s) => (
+                            <button
+                              key={s.id}
+                              onClick={() => setSelectedScenario(s.id)}
+                              className={cn(
+                                "w-full flex items-center gap-4 p-5 rounded-2xl border-2 transition-all text-left",
+                                selectedScenario === s.id 
+                                  ? "bg-accent/5 border-accent shadow-lg shadow-accent/10" 
+                                  : "bg-background border-border hover:border-accent/30"
+                              )}
+                            >
+                              <div className={cn(
+                                "h-10 w-10 rounded-xl flex items-center justify-center border",
+                                selectedScenario === s.id ? "bg-accent/20 border-accent/40 text-accent" : "bg-muted border-border text-muted-foreground"
+                              )}>
+                                {s.icon}
+                              </div>
+                              <div className="flex-1">
+                                <h4 className="font-bold text-foreground">{s.name}</h4>
+                                <p className="text-xs text-muted-foreground">{s.description}</p>
+                              </div>
+                              {selectedScenario === s.id && <div className="h-2 w-2 rounded-full bg-accent animate-ping" />}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <DialogFooter className="p-6 pt-0">
+                      {setupStep === 1 ? (
+                        <Button 
+                          onClick={() => setSetupStep(2)} 
+                          className="w-full h-12 rounded-xl bg-foreground text-background font-black uppercase tracking-widest gap-2 group"
+                        >
+                          Next: Choose Scene <ChevronRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                        </Button>
+                      ) : (
+                        <div className="flex flex-col gap-2 w-full">
+                          <Button 
+                            onClick={handleStartSession} 
+                            className="w-full h-14 rounded-xl bg-primary text-primary-foreground font-black uppercase tracking-widest gap-2 shadow-xl shadow-primary/20"
+                          >
+                            <Zap className="h-5 w-5 fill-current" /> Initialize Link
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            onClick={() => setSetupStep(1)} 
+                            className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground h-8"
+                          >
+                            Back to Tutor Selection
+                          </Button>
+                        </div>
+                      )}
+                    </DialogFooter>
+                  </>
+                )}
               </DialogContent>
             </Dialog>
 
