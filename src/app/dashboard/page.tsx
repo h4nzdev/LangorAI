@@ -145,6 +145,12 @@ export default function Dashboard() {
     return "Fluent";
   };
 
+  // Weekly Activity Logic
+  const getCurrentDayIndex = () => {
+    const day = new Date().getDay(); // 0 is Sunday
+    return day === 0 ? 6 : day - 1; // Map to 0 (Mon) - 6 (Sun)
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col md:flex-row font-body transition-colors duration-300">
       <Navigation />
@@ -388,7 +394,10 @@ export default function Dashboard() {
               </div>
               <div className="flex items-end justify-between px-2 h-20 gap-2">
                 {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, i) => {
-                  const isActive = (i === 6) || (stats.streak > 1 && i === 5);
+                  const todayIdx = getCurrentDayIndex();
+                  // A day is active if it's within the streak count leading up to today
+                  const isActive = i <= todayIdx && (todayIdx - i) < stats.streak;
+                  
                   return (
                     <div key={`${day}-${i}`} className="flex flex-col items-center gap-2 flex-1">
                       <div 
@@ -399,7 +408,10 @@ export default function Dashboard() {
                             : "bg-muted h-6 hover:bg-muted/80"
                         )} 
                       />
-                      <span className="text-[10px] font-bold text-muted-foreground">{day}</span>
+                      <span className={cn(
+                        "text-[10px] font-bold uppercase tracking-widest",
+                        i === todayIdx ? "text-primary" : "text-muted-foreground"
+                      )}>{day}</span>
                     </div>
                   );
                 })}
