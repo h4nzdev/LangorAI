@@ -1,0 +1,56 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Stores user preferences, statistics, and learning progress.",
+      "type": "object",
+      "properties": {
+        "displayName": {
+          "type": "string",
+          "description": "User's chosen name."
+        },
+        "avatar": {
+          "type": "string",
+          "description": "Emoji or image URL for the user's avatar."
+        },
+        "level": {
+          "type": "string",
+          "enum": ["Beginner", "Elementary", "Intermediate", "Advanced", "Fluent"],
+          "description": "Current proficiency level."
+        },
+        "goal": {
+          "type": "string",
+          "enum": ["Career Growth", "Travel", "Self-Improvement", "Exam Prep", "Socializing"],
+          "description": "Primary learning motivation."
+        },
+        "streak": {
+          "type": "number",
+          "description": "Current daily practice streak."
+        },
+        "totalMinutes": {
+          "type": "number",
+          "description": "Cumulative practice time in minutes."
+        },
+        "sessionsCount": {
+          "type": "number",
+          "description": "Total number of completed AI sessions."
+        },
+        "subscription": {
+          "type": "string",
+          "enum": ["basic", "pro"],
+          "description": "Current user plan."
+        }
+      },
+      "required": ["displayName", "level", "goal"]
+    }
+  },
+  "auth": {
+    "providers": ["google.com"]
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile document mapped to Auth UID."
+    }
+  }
+}
