@@ -19,6 +19,7 @@ import {
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { cn } from '@/lib/utils';
 import { Navigation } from '@/components/navigation';
+import { createClient } from '@/lib/supabase/client';
 
 interface Activity {
   id: string;
@@ -49,6 +50,7 @@ export default function Dashboard() {
   const [userGoal, setUserGoal] = useState('Career Growth');
   const [userLevel, setUserLevel] = useState('Intermediate');
   const [recommendations, setRecommendations] = useState<Activity[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState({
     streak: 0,
     sessions: 0,
@@ -56,51 +58,64 @@ export default function Dashboard() {
   });
 
   useEffect(() => {
-    // Basic user info
-    const savedName = localStorage.getItem('USER_NAME');
-    if (savedName) setUserName(savedName);
+    const loadProfile = async () => {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
 
-    const savedAvatar = localStorage.getItem('USER_AVATAR');
-    if (savedAvatar) setUserAvatar(savedAvatar);
+      let goal = 'Career Growth';
+      let level = 'Intermediate';
 
-    const savedGoal = localStorage.getItem('USER_GOAL') || 'Career Growth';
-    setUserGoal(savedGoal);
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
 
-    const savedLevel = localStorage.getItem('USER_LEVEL') || 'Intermediate';
-    setUserLevel(savedLevel);
-
-    // Progress stats
-    const streak = parseInt(localStorage.getItem('STREAK_COUNT') || '0');
-    const sessions = parseInt(localStorage.getItem('SESSIONS_COUNT') || '0');
-    
-    // Confidence starts at 0 for new users
-    const calculatedConfidence = Math.min(sessions * 5, 100);
-
-    setStats({
-      streak,
-      sessions,
-      confidence: calculatedConfidence
-    });
-
-    // Enhanced recommendation engine (matching goal and level)
-    try {
-      let filtered = ALL_ACTIVITIES.filter(a => a.goal === savedGoal && a.level === savedLevel);
-      
-      if (filtered.length < 4) {
-        const goalMatches = ALL_ACTIVITIES.filter(a => a.goal === savedGoal && !filtered.find(f => f.id === a.id));
-        filtered = [...filtered, ...goalMatches];
+        if (profile) {
+          setUserName(profile.username);
+          setUserAvatar(profile.avatar);
+          goal = profile.learning_goal || 'Career Growth';
+          level = profile.proficiency_level || 'Intermediate';
+          setUserGoal(goal);
+          setUserLevel(level);
+          const confidence = Math.min(profile.total_sessions * 5, 100);
+          setStats({
+            streak: profile.streak,
+            sessions: profile.total_sessions,
+            confidence,
+          });
+        }
+      } else {
+        // Fallback to localStorage while auth loads
+        const savedName = localStorage.getItem('USER_NAME');
+        if (savedName) setUserName(savedName);
+        setUserAvatar(localStorage.getItem('USER_AVATAR') || '👤');
+        goal = localStorage.getItem('USER_GOAL') || 'Career Growth';
+        level = localStorage.getItem('USER_LEVEL') || 'Intermediate';
+        setUserGoal(goal);
+        setUserLevel(level);
+        const sessions = parseInt(localStorage.getItem('SESSIONS_COUNT') || '0');
+        setStats({
+          streak: parseInt(localStorage.getItem('STREAK_COUNT') || '0'),
+          sessions,
+          confidence: Math.min(sessions * 5, 100),
+        });
       }
 
+      // Build recommendations
+      let filtered = ALL_ACTIVITIES.filter(a => a.goal === goal && a.level === level);
       if (filtered.length < 4) {
-        const fillers = ALL_ACTIVITIES.filter(a => !filtered.find(f => f.id === a.id)).slice(0, 4 - filtered.length);
-        filtered = [...filtered, ...fillers];
+        filtered = [...filtered, ...ALL_ACTIVITIES.filter(a => a.goal === goal && !filtered.find(f => f.id === a.id))];
       }
-      
+      if (filtered.length < 4) {
+        filtered = [...filtered, ...ALL_ACTIVITIES.filter(a => !filtered.find(f => f.id === a.id)).slice(0, 4 - filtered.length)];
+      }
       setRecommendations(filtered.slice(0, 4));
-    } catch (e) {
-      console.error("Failed to generate recommendations:", e);
-      setRecommendations(ALL_ACTIVITIES.slice(0, 4));
-    }
+      setIsLoading(false);
+    };
+
+    loadProfile();
   }, []);
 
   const getLevelLabel = (confidence: number) => {
@@ -110,6 +125,17 @@ export default function Dashboard() {
     if (confidence < 90) return "Advanced";
     return "Fluent";
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-10 w-10 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+          <p className="text-muted-foreground text-sm font-medium">Loading your profile...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col md:flex-row font-body transition-colors duration-300">

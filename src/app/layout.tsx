@@ -1,6 +1,7 @@
 import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
+import { SupabaseProvider } from "@/components/SupabaseProvider";
 
 export const metadata: Metadata = {
   title: 'Langor AI - Master Languages Through Conversation',
@@ -35,7 +36,9 @@ export default function RootLayout({
         }} />
       </head>
       <body className="font-body antialiased">
-        {children}
+        <SupabaseProvider>
+          {children}
+        </SupabaseProvider>
         <Toaster />
       </body>
     </html>

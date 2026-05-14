@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { createClient } from '@/lib/supabase/client';
 
 const AVATARS = ['👤', '🧑‍🚀', '🧛', '🧙', '🦒', '🦊', '🦉', '🎨', '🎭', '🎮', '🎸', '🚀'];
 const LEVELS = ['Beginner', 'Elementary', 'Intermediate', 'Advanced', 'Fluent'];
@@ -120,24 +121,61 @@ export default function WelcomeTour() {
     }
   };
 
-  const handleComplete = () => {
+  const handleComplete = async () => {
     const trimmedName = userName.trim();
     if (!trimmedName) return;
-    
+
     setIsInitializing(true);
-    
+    const supabase = createClient();
+
+    // Ensure anonymous session exists
+    let { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      const { data, error } = await supabase.auth.signInAnonymously();
+      if (error || !data.user) {
+        const msg = error?.message ?? 'Unknown error';
+        console.error('[Auth] signInAnonymously failed:', msg);
+        toast({
+          variant: 'destructive',
+          title: 'Sign-in failed',
+          description: msg,
+        });
+        setIsInitializing(false);
+        return;
+      }
+      user = data.user;
+    }
+
+    // Save profile to Supabase
+    const { error: profileError } = await supabase.from('profiles').upsert({
+      id: user.id,
+      username: trimmedName,
+      avatar: userAvatar,
+      level: userLevel as 'Beginner' | 'Intermediate' | 'Advanced' | 'Pro',
+      learning_goal: userGoal,
+      proficiency_level: userLevel,
+    }, { onConflict: 'id' });
+
+    if (profileError) {
+      toast({
+        variant: 'destructive',
+        title: 'Could not save your profile',
+        description: profileError.message,
+      });
+      setIsInitializing(false);
+      return;
+    }
+
+    // Keep localStorage in sync for offline use
     localStorage.setItem('USER_NAME', trimmedName);
     localStorage.setItem('USER_AVATAR', userAvatar);
     localStorage.setItem('USER_LEVEL', userLevel);
     localStorage.setItem('USER_GOAL', userGoal);
-    
     if (!localStorage.getItem('SESSIONS_COUNT')) localStorage.setItem('SESSIONS_COUNT', '0');
     if (!localStorage.getItem('TOTAL_MINUTES')) localStorage.setItem('TOTAL_MINUTES', '0');
     if (!localStorage.getItem('STREAK_COUNT')) localStorage.setItem('STREAK_COUNT', '0');
-    
-    setTimeout(() => {
-      router.push('/dashboard');
-    }, 3000);
+
+    setTimeout(() => router.push('/dashboard'), 2000);
   };
 
   const skipTour = () => {
