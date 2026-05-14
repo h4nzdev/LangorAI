@@ -86,7 +86,7 @@ export default function SettingsPage() {
           <h1 className="text-xl font-bold tracking-tight">Settings</h1>
         </header>
 
-        <main className="flex-1 max-w-xl mx-auto w-full px-6 space-y-8 pb-24 md:pb-12">
+        <main className="flex-1 max-w-xl mx-auto w-full px-6 space-y-8 pb-32 md:pb-12">
           
           {/* Appearance Section */}
           <section className="space-y-4">

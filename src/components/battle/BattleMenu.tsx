@@ -77,7 +77,7 @@ export function BattleMenu({ onStart, stats, battleHistory }: BattleMenuProps) {
 
   return (
     <div className="min-h-screen p-4 md:p-8">
-      <div className="max-w-2xl mx-auto space-y-6 pb-10">
+      <div className="max-w-2xl mx-auto space-y-6 pb-32">
 
         {/* ── Header ───────────────────────────────────────────────────────── */}
         <div className="text-center space-y-3 pt-4">

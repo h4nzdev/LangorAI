@@ -229,7 +229,7 @@ export default function Dashboard() {
           </Button>
         </header>
 
-        <main className="flex-1 overflow-auto pb-24 md:pb-12">
+        <main className="flex-1 overflow-auto pb-32 md:pb-12">
           <div className="max-w-4xl mx-auto px-6 space-y-8">
             {/* Welcome */}
             <div className="space-y-1">

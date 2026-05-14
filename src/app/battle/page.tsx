@@ -236,7 +236,7 @@ export default function BattlePage() {
     <div className="min-h-screen bg-background">
       {!isBattleInProgress && <Navigation />}
 
-      <main className={cn('min-h-screen', !isBattleInProgress && 'md:pl-64')}>
+      <main className={cn('min-h-screen pb-32 md:pb-0', !isBattleInProgress && 'md:pl-64')}>
         {isBattleInProgress && (
           <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-yellow-500 to-orange-500 text-white px-4 py-3 flex items-center justify-center gap-3 shadow-lg">
             <AlertTriangle className="h-5 w-5" />

@@ -88,7 +88,7 @@ export default function LeaderboardPage() {
     <div className="min-h-screen bg-background">
       <Navigation />
 
-      <main className="md:pl-64">
+      <main className="md:pl-64 pb-32 md:pb-0">
         <div className="container mx-auto p-6 space-y-8 max-w-3xl">
           {/* Header */}
           <div className="text-center space-y-4">

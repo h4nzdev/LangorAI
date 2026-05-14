@@ -14,6 +14,7 @@ import {
   User,
   LogOut,
   ChevronDown,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -211,136 +212,111 @@ export function Navigation() {
       </aside>
 
       {/* Mobile Bottom Bar */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-background/80 backdrop-blur-lg border-t border-border px-6 py-3 z-50 transition-colors duration-300">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          {/* Left Side - Home, Practice */}
-          <div className="flex items-center gap-1">
-            {mainNavItems.slice(0, 2).map((item) => {
-              const isActive = pathname === item.href;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    "flex flex-col items-center gap-1 transition-colors p-2",
-                    isActive
-                      ? "text-primary font-bold"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  <item.icon className="h-5 w-5" />
-                  <span className="text-[9px]">{item.label}</span>
-                </Link>
-              );
-            })}
-          </div>
-
-          {/* Center - Battle Mode - Highlighted */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-background/90 backdrop-blur-xl border-t border-border/50 z-50 pb-safe shadow-[0_-8px_30px_rgb(0,0,0,0.12)]">
+        <div className="max-w-md mx-auto grid grid-cols-5 items-center px-2">
+          {/* Home */}
           <Link
-            href="/battle"
-            className="flex flex-col items-center gap-1 -mt-6"
+            href="/dashboard"
+            className={cn(
+              "flex flex-col items-center gap-1 py-3 transition-all duration-300",
+              pathname === "/dashboard"
+                ? "text-primary scale-110"
+                : "text-muted-foreground hover:text-foreground"
+            )}
           >
-            <div
-              className={cn(
-                "w-16 h-16 rounded-full flex items-center justify-center shadow-lg transition-all",
-                pathname === "/battle"
-                  ? "bg-gradient-to-r from-yellow-500 to-orange-500 shadow-orange-500/50 scale-110"
-                  : "bg-gradient-to-r from-yellow-500 to-orange-500 shadow-orange-500/30",
-              )}
-            >
-              <Swords className="h-7 w-7 text-white" />
-            </div>
+            <Home className={cn("h-5 w-5", pathname === "/dashboard" && "fill-current/20")} />
+            <span className="text-[10px] font-bold">Home</span>
           </Link>
 
-          {/* Right Side - Insights, More */}
-          <div className="flex items-center gap-1">
-            {mainNavItems.slice(2).map((item) => {
-              const isActive = pathname === item.href;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    "flex flex-col items-center gap-1 transition-colors p-2",
-                    isActive
-                      ? "text-primary font-bold"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  <item.icon className="h-5 w-5" />
-                  <span className="text-[9px]">{item.label}</span>
-                </Link>
-              );
-            })}
+          {/* Practice */}
+          <Link
+            href="/practice"
+            className={cn(
+              "flex flex-col items-center gap-1 py-3 transition-all duration-300",
+              pathname === "/practice"
+                ? "text-primary scale-110"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <MessageSquare className={cn("h-5 w-5", pathname === "/practice" && "fill-current/20")} />
+            <span className="text-[10px] font-bold">Practice</span>
+          </Link>
 
-            {/* Profile Dropdown */}
-            <DropdownMenu>
-              <DropdownMenuTrigger className="flex flex-col items-center gap-1 p-2">
-                <Avatar
-                  className={cn(
-                    "h-8 w-8 border-2 transition-colors",
-                    pathname === "/profile" ||
-                      pathname === "/settings" ||
-                      pathname === "/leaderboard"
-                      ? "border-primary"
-                      : "border-muted-foreground/30",
-                  )}
-                >
-                  <AvatarFallback className="text-sm">
-                    {userAvatar}
-                  </AvatarFallback>
-                </Avatar>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[200px]">
-                <DropdownMenuLabel>
-                  <div className="flex flex-col gap-1">
-                    <span className="font-bold">{userName}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {userLevel}
-                    </span>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link
-                    href="/profile"
-                    className="flex items-center cursor-pointer"
-                  >
-                    <User className="mr-2 h-4 w-4" />
-                    Profile
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link
-                    href="/leaderboard"
-                    className="flex items-center cursor-pointer"
-                  >
-                    <Trophy className="mr-2 h-4 w-4" />
-                    Leaderboard
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link
-                    href="/settings"
-                    className="flex items-center cursor-pointer"
-                  >
-                    <Settings className="mr-2 h-4 w-4" />
-                    Settings
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link
-                    href="/pricing"
-                    className="flex items-center cursor-pointer text-primary font-bold"
-                  >
-                    <Swords className="mr-2 h-4 w-4" />
-                    Upgrade to Pro
-                  </Link>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+          {/* Center - Battle Mode */}
+          <div className="relative flex justify-center -mt-8">
+            <Link
+              href="/battle"
+              className={cn(
+                "w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-500 shadow-2xl",
+                pathname === "/battle"
+                  ? "bg-gradient-to-br from-yellow-400 via-orange-500 to-red-600 shadow-orange-500/50 scale-110 rotate-0"
+                  : "bg-gradient-to-br from-yellow-500 to-orange-500 shadow-orange-500/30 hover:scale-105 active:scale-95"
+              )}
+            >
+              <Swords className="h-8 w-8 text-white drop-shadow-md" />
+              {/* Subtle pulsing ring when on battle page */}
+              {pathname === "/battle" && (
+                <div className="absolute inset-0 rounded-2xl bg-orange-500 animate-ping opacity-20 -z-10" />
+              )}
+            </Link>
           </div>
+
+          {/* Insights */}
+          <Link
+            href="/profile"
+            className={cn(
+              "flex flex-col items-center gap-1 py-3 transition-all duration-300",
+              pathname === "/profile"
+                ? "text-primary scale-110"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <BarChart3 className={cn("h-5 w-5", pathname === "/profile" && "fill-current/20")} />
+            <span className="text-[10px] font-bold">Insights</span>
+          </Link>
+
+          {/* Profile Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger className="flex flex-col items-center gap-1 py-3 outline-none transition-all duration-300 active:scale-95">
+              <div className={cn(
+                "h-6 w-6 rounded-lg border-2 flex items-center justify-center text-[10px] transition-colors",
+                pathname === "/settings" || pathname === "/leaderboard"
+                  ? "border-primary text-primary"
+                  : "border-muted-foreground/30 text-muted-foreground"
+              )}>
+                {userAvatar}
+              </div>
+              <span className="text-[10px] font-bold text-muted-foreground">More</span>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-[200px] rounded-2xl p-2 shadow-2xl border-border/50 backdrop-blur-xl">
+              <DropdownMenuLabel className="px-3 py-2">
+                <div className="flex flex-col gap-0.5">
+                  <span className="font-bold text-sm">{userName}</span>
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-black">{userLevel}</span>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator className="my-1 opacity-50" />
+              <DropdownMenuItem asChild className="rounded-xl focus:bg-primary focus:text-white transition-colors cursor-pointer">
+                <Link href="/leaderboard" className="flex items-center w-full py-2 px-3">
+                  <Trophy className="mr-3 h-4 w-4" />
+                  <span className="font-bold text-sm">Leaderboard</span>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild className="rounded-xl focus:bg-primary focus:text-white transition-colors cursor-pointer">
+                <Link href="/settings" className="flex items-center w-full py-2 px-3">
+                  <Settings className="mr-3 h-4 w-4" />
+                  <span className="font-bold text-sm">Settings</span>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator className="my-1 opacity-50" />
+              <DropdownMenuItem asChild className="rounded-xl bg-primary/10 text-primary focus:bg-primary focus:text-white transition-all cursor-pointer">
+                <Link href="/pricing" className="flex items-center w-full py-2 px-3">
+                  <Zap className="mr-3 h-4 w-4 fill-current" />
+                  <span className="font-black text-xs uppercase tracking-widest">Upgrade to Pro</span>
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </nav>
     </>
