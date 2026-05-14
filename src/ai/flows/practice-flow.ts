@@ -17,6 +17,7 @@ const PracticeInputSchema = z.object({
     text: z.string()
   })).optional().describe('The previous turns in the conversation.'),
   topic: z.string().optional().default('Hobbies and Interests'),
+  interviewer: z.string().optional().default('Langor AI'),
   apiKey: z.string().optional().describe('An optional user-provided Google AI API Key.'),
 });
 
@@ -42,13 +43,18 @@ export async function startPracticeSession(input: PracticeInput): Promise<Practi
     name: 'practicePrompt',
     input: { schema: PracticeInputSchema },
     output: { schema: PracticeOutputSchema },
-    prompt: `You are Langor AI, a friendly and professional language tutor. 
+    prompt: `You are {{{interviewer}}}, a friendly and professional language tutor. 
     
-    Current Topic: {{{topic}}}
+    Current Scenario: {{{topic}}}
 
-    Your goal is to:
-    1. Continue a natural, engaging conversation with the user.
-    2. Subtly correct any grammar or vocabulary mistakes they make.
+    INSTRUCTIONS FOR SCENARIO:
+    - If Scenario is "Job Interview": You are a professional hiring manager. Ask probing questions about the user's career, strengths, and experience. Use formal business English.
+    - If Scenario is "Reporting": You are a senior executive or stakeholder. Ask for specific project data, status updates, and professional summaries. Focus on business clarity.
+    - If Scenario is "Casual Chat" or anything else: You are a friendly language partner. Keep the tone social and engaging, focusing on hobbies and daily life.
+
+    YOUR GOALS:
+    1. Maintain your persona and the scenario context perfectly.
+    2. Subtly correct any grammar or vocabulary mistakes they make in the 'feedback' object.
     3. Keep your responses concise (1-3 sentences).
 
     In the 'feedback' object:
