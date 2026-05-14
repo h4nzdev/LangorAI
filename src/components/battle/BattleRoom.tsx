@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Mic, MicOff, Sparkles, Zap, AlertCircle, CheckCircle2, Lock } from 'lucide-react';
+import { Mic, MicOff, Sparkles, Zap, AlertCircle, CheckCircle2, Lock, SendHorizonal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useBattleRealtime } from '@/hooks/use-battle-realtime';
 import { useToast } from '@/hooks/use-toast';
@@ -78,10 +78,12 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
   const opponentRef          = useRef(opponent);
   const handleFinalRef       = useRef<(text: string) => void>(() => {});
   const startRecognitionRef  = useRef<() => void>(() => {});
+  const myTranscriptRef      = useRef('');
 
-  useEffect(() => { isMutedRef.current    = isMuted;     }, [isMuted]);
-  useEffect(() => { battleEndedRef.current = battleEnded; }, [battleEnded]);
-  useEffect(() => { opponentRef.current    = opponent;    }, [opponent]);
+  useEffect(() => { isMutedRef.current    = isMuted;       }, [isMuted]);
+  useEffect(() => { battleEndedRef.current = battleEnded;  }, [battleEnded]);
+  useEffect(() => { opponentRef.current    = opponent;     }, [opponent]);
+  useEffect(() => { myTranscriptRef.current = myTranscript; }, [myTranscript]);
 
   // Debate position: lex-smaller user_id → FOR, larger → AGAINST
   const myPosition = currentUserId && opponent
@@ -283,6 +285,21 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
     if (muting) stopRecognition();
   };
 
+  // Manually finalise the current utterance (for mobile where auto-final is unreliable)
+  const handleManualSend = useCallback(() => {
+    const text = myTranscriptRef.current.trim();
+    if (!text || battleEndedRef.current) return;
+    // Stop recognition so it doesn't also fire onresult after this
+    if (recognitionRef.current) {
+      recognitionRef.current.abort();
+      recognitionRef.current = null;
+    }
+    setIsListening(false);
+    setMyTranscript('');
+    broadcastSpeaking(false);
+    handleFinalRef.current(text);
+  }, [broadcastSpeaking]);
+
   // ── Derived ──────────────────────────────────────────────────────────────────
   const playerErrors   = player?.error_count  ?? 0;
   const opponentErrors = opponent?.error_count ?? 0;
@@ -481,8 +498,19 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
               </span>
             </div>
 
-            {/* Spacer for symmetry */}
-            <div className="h-14 w-14" />
+            {/* Send button — visible when listening and there is a transcript to send */}
+            <button
+              onClick={handleManualSend}
+              disabled={!isMyTurn || !myTranscript}
+              className={cn(
+                'h-14 w-14 rounded-full flex items-center justify-center border-2 transition-all duration-200',
+                isMyTurn && myTranscript
+                  ? 'bg-primary border-primary text-primary-foreground shadow-lg shadow-primary/40 scale-105'
+                  : 'bg-white/5 border-white/10 text-white/20 cursor-not-allowed'
+              )}
+            >
+              <SendHorizonal className="h-6 w-6" />
+            </button>
           </div>
         )}
 
