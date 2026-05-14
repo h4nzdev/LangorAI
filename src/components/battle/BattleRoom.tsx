@@ -8,28 +8,30 @@ import { useBattleRealtime } from '@/hooks/use-battle-realtime';
 import { useToast } from '@/hooks/use-toast';
 import { checkGrammar } from '@/lib/grammar-checker';
 
-// ── Conversation topics ────────────────────────────────────────────────────────
-const TOPICS = [
-  'Talk about your favourite hobby or passion',
-  'Describe your ideal weekend',
-  'What skill do you wish you had learned earlier?',
-  'Tell me about a place you would love to visit',
-  'What does your perfect morning routine look like?',
-  'Describe a person who has inspired you',
-  'What are the pros and cons of social media?',
-  'Talk about your favourite book, film, or series',
-  'What do you think is the most important quality in a friend?',
-  'Describe your dream job and why it appeals to you',
-  'What would you do if you had one free year?',
-  'Talk about a challenge you have overcome',
-  'What technology has changed your life the most?',
-  'Describe your hometown and what makes it unique',
-  'What is something you are currently learning?',
+// ── Debate motions ────────────────────────────────────────────────────────────
+const DEBATE_MOTIONS = [
+  'Social media does more harm than good to society',
+  'Artificial intelligence will replace most human jobs within 10 years',
+  'Working from home is better than working in an office',
+  'University education is no longer worth the cost',
+  'Climate change should be the world\'s top priority',
+  'Video games have a positive effect on young people',
+  'Celebrities have too much influence on public opinion',
+  'Owning a car in a city is unnecessary',
+  'Learning a foreign language should be mandatory in schools',
+  'Technology is making people less creative',
+  'Fast food should be taxed like cigarettes',
+  'Space exploration is a waste of money',
+  'Traditional sports will be replaced by esports',
+  'Remote work is here to stay permanently',
+  'Social skills are more important than academic skills',
 ];
 
-function pickTopic(roomId: string) {
+const MIN_WORDS = 8;
+
+function pickMotion(roomId: string) {
   const hash = roomId.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-  return TOPICS[hash % TOPICS.length];
+  return DEBATE_MOTIONS[hash % DEBATE_MOTIONS.length];
 }
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -64,8 +66,9 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
   const [speechSupported, setSpeechSupported] = useState(true);
   const [aiMode, setAiMode]             = useState(false);
   const [elapsed, setElapsed]           = useState(0);
-  const [topic]                         = useState(() => pickTopic(roomId));
-  const [isSwitchingTurn, setIsSwitchingTurn] = useState(false);
+  const [motion]                        = useState(() => pickMotion(roomId));
+  const [isSwitchingTurn, setIsSwitchingTurn]   = useState(false);
+  const [tooShortWarning, setTooShortWarning]   = useState(false);
 
   const recognitionRef       = useRef<any>(null); // eslint-disable-line @typescript-eslint/no-explicit-any
   const isMutedRef           = useRef(false);
@@ -74,10 +77,16 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
   // Always-current refs so recognition callbacks never hold stale closures
   const opponentRef          = useRef(opponent);
   const handleFinalRef       = useRef<(text: string) => void>(() => {});
+  const startRecognitionRef  = useRef<() => void>(() => {});
 
   useEffect(() => { isMutedRef.current    = isMuted;     }, [isMuted]);
   useEffect(() => { battleEndedRef.current = battleEnded; }, [battleEnded]);
   useEffect(() => { opponentRef.current    = opponent;    }, [opponent]);
+
+  // Debate position: lex-smaller user_id → FOR, larger → AGAINST
+  const myPosition = currentUserId && opponent
+    ? (currentUserId.localeCompare(opponent.user_id) < 0 ? 'FOR' : 'AGAINST')
+    : null;
 
   // Timer
   useEffect(() => {
@@ -189,6 +198,17 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
   const handleFinalUtterance = useCallback(async (text: string) => {
     if (!text.trim() || battleEndedRef.current) return;
 
+    // Enforce minimum word count — prevent single-word cheating
+    const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
+    if (wordCount < MIN_WORDS) {
+      setTooShortWarning(true);
+      setTimeout(() => {
+        setTooShortWarning(false);
+        startRecognitionRef.current(); // restart mic, same player keeps their turn
+      }, 1800);
+      return;
+    }
+
     const local = checkGrammar(text);
 
     if (local.hasError && local.correctedText) {
@@ -240,8 +260,9 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
     }
   }, [reportError, switchTurn]);
 
-  // Keep handleFinalRef in sync so startRecognition never calls a stale version
-  useEffect(() => { handleFinalRef.current = handleFinalUtterance; }, [handleFinalUtterance]);
+  // Keep refs in sync so recognition callbacks never hold stale closures
+  useEffect(() => { handleFinalRef.current      = handleFinalUtterance; }, [handleFinalUtterance]);
+  useEffect(() => { startRecognitionRef.current = startRecognition;     }, [startRecognition]);
 
   // ── Auto-manage mic based on turn ────────────────────────────────────────────
   useEffect(() => {
@@ -279,11 +300,6 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
           <span className="text-white font-mono font-bold text-sm tracking-widest">{formatTime(elapsed)}</span>
         </div>
 
-        <div className="max-w-[55%] text-center">
-          <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/40">Topic</p>
-          <p className="text-[11px] text-white/70 font-medium leading-tight line-clamp-2">{topic}</p>
-        </div>
-
         <div className={cn(
           'flex items-center gap-1.5 rounded-full px-3 py-1.5 border text-[9px] font-black uppercase tracking-widest',
           aiMode ? 'bg-violet-500/20 border-violet-500/40 text-violet-300' : 'bg-primary/20 border-primary/40 text-primary'
@@ -293,18 +309,42 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
         </div>
       </div>
 
+      {/* ── Debate motion banner ────────────────────────────────────────────────── */}
+      <div className="shrink-0 mx-4 mb-1 px-4 py-2.5 bg-white/5 border border-white/10 rounded-2xl">
+        <p className="text-[8px] font-black uppercase tracking-[0.25em] text-white/30 text-center mb-1">⚖️ Debate Motion</p>
+        <p className="text-[11px] text-white/80 font-semibold text-center leading-snug">"{motion}"</p>
+        {myPosition && (
+          <div className="flex justify-center mt-1.5">
+            <span className={cn(
+              'text-[9px] font-black uppercase tracking-widest px-3 py-0.5 rounded-full',
+              myPosition === 'FOR'
+                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                : 'bg-red-500/20 text-red-400 border border-red-500/30'
+            )}>
+              {myPosition === 'FOR' ? '✅ You: FOR' : '❌ You: AGAINST'}
+            </span>
+          </div>
+        )}
+      </div>
+
       {/* ── Turn banner ─────────────────────────────────────────────────────────── */}
-      <div className="shrink-0 flex items-center justify-center py-2">
-        <div className={cn(
-          'px-5 py-2 rounded-full border font-black text-sm uppercase tracking-[0.2em] transition-all duration-500',
-          isMyTurn
-            ? 'bg-primary/20 border-primary/50 text-primary animate-pulse'
-            : isSwitchingTurn
-            ? 'bg-white/5 border-white/10 text-white/40'
-            : 'bg-white/5 border-white/10 text-white/50'
-        )}>
-          {isMyTurn ? '🎤 Your Turn — Speak Now' : isSwitchingTurn ? 'Switching…' : `🔇 ${opponent?.username ?? 'Opponent'}\'s Turn`}
-        </div>
+      <div className="shrink-0 flex items-center justify-center py-1.5">
+        {tooShortWarning ? (
+          <div className="px-5 py-2 rounded-full border bg-yellow-500/20 border-yellow-500/50 text-yellow-400 font-black text-sm uppercase tracking-[0.15em] animate-pulse">
+            ⚠️ Too short — say at least {MIN_WORDS} words!
+          </div>
+        ) : (
+          <div className={cn(
+            'px-5 py-2 rounded-full border font-black text-sm uppercase tracking-[0.2em] transition-all duration-500',
+            isMyTurn
+              ? 'bg-primary/20 border-primary/50 text-primary animate-pulse'
+              : isSwitchingTurn
+              ? 'bg-white/5 border-white/10 text-white/40'
+              : 'bg-white/5 border-white/10 text-white/50'
+          )}>
+            {isMyTurn ? '🎤 Your Turn — Speak Now' : isSwitchingTurn ? 'Switching…' : `🔇 ${opponent?.username ?? 'Opponent'}\'s Turn`}
+          </div>
+        )}
       </div>
 
       {/* ── Opponent section ─────────────────────────────────────────────────────── */}
