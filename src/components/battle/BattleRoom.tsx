@@ -4,10 +4,13 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { PlayerCard } from './PlayerCard';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Mic, MicOff, MessageSquare, Lock, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import {
+  Mic, MicOff, MessageSquare, Lock, AlertCircle, CheckCircle2, Sparkles, Zap,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useBattleRealtime } from '@/hooks/use-battle-realtime';
 import { useToast } from '@/hooks/use-toast';
+import { checkGrammar } from '@/lib/grammar-checker';
 
 interface BattleRoomProps {
   roomId: string;
@@ -22,10 +25,11 @@ interface BattleRoomProps {
   }) => void;
 }
 
-interface GrammarCorrection {
-  incorrect: string;
-  correct: string;
+interface CorrectionCard {
+  originalText: string;
+  correctedText: string;
   explanation: string;
+  enhanced?: boolean; // true when the explanation came from Gemini
 }
 
 interface LogEntry {
@@ -39,12 +43,12 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
   const { toast } = useToast();
 
   const [isListening, setIsListening] = useState(false);
-  const [isChecking, setIsChecking] = useState(false);
   const [transcript, setTranscript] = useState('');
-  const [recentCorrection, setRecentCorrection] = useState<GrammarCorrection | null>(null);
+  const [correction, setCorrection] = useState<CorrectionCard | null>(null);
   const [battleLog, setBattleLog] = useState<LogEntry[]>([]);
   const [battleEnded, setBattleEnded] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(true);
+  const [aiMode, setAiMode] = useState(false); // true = Gemini key found
   const [logCounter, setLogCounter] = useState(0);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -55,6 +59,9 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) setSpeechSupported(false);
+
+    const key = localStorage.getItem('GEMINI_API_KEY');
+    setAiMode(!!key);
   }, []);
 
   // Detect battle end
@@ -100,46 +107,93 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
     setIsListening(false);
   }, []);
 
-  const checkGrammar = useCallback(async (text: string) => {
-    setIsChecking(true);
-    try {
+  const handleTranscript = useCallback(async (text: string) => {
+    // ── Step 1: instant local check ───────────────────────────────────────────
+    const local = checkGrammar(text);
+
+    if (local.hasError && local.correctedText) {
+      setCorrection({
+        originalText: local.originalText,
+        correctedText: local.correctedText,
+        explanation: local.explanation ?? '',
+        enhanced: false,
+      });
+      addLog(`❌ "${local.originalText.slice(0, 40)}…" → error`, true);
+      await reportError();
+      setTimeout(() => setCorrection(null), 6000);
+
+      // ── Step 2 (optional): enhance explanation with Gemini in background ──
       const apiKey = typeof window !== 'undefined'
-        ? (localStorage.getItem('GOOGLE_AI_API_KEY') || undefined)
+        ? (localStorage.getItem('GEMINI_API_KEY') || undefined)
         : undefined;
 
-      const res = await fetch('/api/battle/grammar', {
+      if (apiKey) {
+        fetch('/api/battle/grammar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ transcript: text, apiKey }),
+        })
+          .then(r => r.ok ? r.json() : null)
+          .then((data: { hasError: boolean; corrections: { incorrect: string; correct: string; explanation: string }[] } | null) => {
+            if (data?.hasError && data.corrections?.[0]) {
+              const c = data.corrections[0];
+              setCorrection(prev =>
+                prev ? {
+                  ...prev,
+                  correctedText: c.correct || prev.correctedText,
+                  explanation: c.explanation || prev.explanation,
+                  enhanced: true,
+                } : null
+              );
+            }
+          })
+          .catch(() => null); // silent — local result already shown
+      }
+
+      return;
+    }
+
+    // ── No local error found ──────────────────────────────────────────────────
+    const preview = text.length > 48 ? text.slice(0, 48) + '…' : text;
+
+    // If Gemini key exists, also double-check for errors local rules missed
+    const apiKey = typeof window !== 'undefined'
+      ? (localStorage.getItem('GEMINI_API_KEY') || undefined)
+      : undefined;
+
+    if (apiKey) {
+      fetch('/api/battle/grammar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ transcript: text, apiKey }),
-      });
-
-      if (!res.ok) {
-        addLog('⚠️ Grammar check failed — no penalty', false);
-        return;
-      }
-
-      const data: { hasError: boolean; corrections: GrammarCorrection[] } = await res.json();
-
-      if (data.hasError && data.corrections?.length > 0) {
-        const correction = data.corrections[0];
-        setRecentCorrection(correction);
-        addLog(`❌ "${correction.incorrect}" → "${correction.correct}"`, true);
-        await reportError();
-        setTimeout(() => setRecentCorrection(null), 5000);
-      } else {
-        const preview = text.length > 45 ? text.slice(0, 45) + '…' : text;
-        addLog(`✅ "${preview}" — Correct!`, false);
-      }
-    } catch (err) {
-      console.error('[Grammar check]', err);
-      addLog('⚠️ Grammar check error — no penalty', false);
-    } finally {
-      setIsChecking(false);
+      })
+        .then(r => r.ok ? r.json() : null)
+        .then(async (data: { hasError: boolean; corrections: { incorrect: string; correct: string; explanation: string }[] } | null) => {
+          if (data?.hasError && data.corrections?.[0]) {
+            const c = data.corrections[0];
+            setCorrection({
+              originalText: c.incorrect,
+              correctedText: c.correct,
+              explanation: c.explanation,
+              enhanced: true,
+            });
+            addLog(`❌ "${c.incorrect.slice(0, 40)}" → AI flagged`, true);
+            await reportError();
+            setTimeout(() => setCorrection(null), 6000);
+          } else {
+            addLog(`✅ "${preview}" — Correct!`, false);
+          }
+        })
+        .catch(() => {
+          addLog(`✅ "${preview}" — Correct!`, false);
+        });
+    } else {
+      addLog(`✅ "${preview}" — Correct!`, false);
     }
   }, [reportError, addLog]);
 
   const startListening = useCallback(() => {
-    if (isListening || isChecking) return;
+    if (isListening) return;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -169,12 +223,12 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
     recognition.onresult = (event: { results: { [key: number]: { [key: number]: { transcript: string } } } }) => {
       const text = event.results[0][0].transcript;
       setTranscript(text);
-      checkGrammar(text);
+      handleTranscript(text);
     };
 
     recognitionRef.current = recognition;
     recognition.start();
-  }, [isListening, isChecking, checkGrammar, toast]);
+  }, [isListening, handleTranscript, toast]);
 
   const playerErrors = player?.error_count ?? 0;
   const opponentErrors = opponent?.error_count ?? 0;
@@ -184,8 +238,18 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
 
   return (
     <div className="fixed inset-0 bg-background overflow-auto">
-      {/* Locked indicator */}
-      <div className="fixed bottom-6 right-6 z-50">
+      {/* Session locked badge */}
+      <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-2">
+        {/* Grammar mode badge */}
+        <div className={cn(
+          'text-white px-3 py-1.5 rounded-xl shadow-lg flex items-center gap-2 text-xs font-bold uppercase tracking-widest',
+          aiMode
+            ? 'bg-violet-600'
+            : 'bg-primary/90'
+        )}>
+          {aiMode ? <Sparkles className="h-3 w-3" /> : <Zap className="h-3 w-3" />}
+          {aiMode ? 'AI Enhanced' : 'Rule-Based'}
+        </div>
         <div className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 animate-pulse">
           <Lock className="h-5 w-5 fill-white" />
           <span className="font-bold text-sm uppercase tracking-widest">Session Locked</span>
@@ -200,11 +264,11 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
               Battle in Progress
             </h1>
             <p className="text-muted-foreground font-medium">
-              First to {errorLimit} errors loses — speak in English, AI is watching!
+              First to {errorLimit} errors loses — speak in English, grammar is being checked!
             </p>
           </div>
 
-          {/* Error progress */}
+          {/* Error progress bar */}
           <Card className="border-2 border-border bg-card">
             <CardContent className="p-4">
               <div className="flex items-center justify-center gap-4 flex-wrap">
@@ -216,9 +280,7 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
                       className={cn(
                         'h-3 rounded-full transition-all duration-300',
                         errorLimit <= 10 ? 'w-6' : 'w-3',
-                        i < playerErrors
-                          ? 'bg-destructive scale-y-110'
-                          : 'bg-muted'
+                        i < playerErrors ? 'bg-destructive scale-y-110' : 'bg-muted'
                       )}
                     />
                   ))}
@@ -263,14 +325,10 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
             )}>
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <div className={cn(
-                    'w-2 h-2 rounded-full',
-                    isListening ? 'bg-primary animate-pulse' : 'bg-muted'
-                  )} />
+                  <div className={cn('w-2 h-2 rounded-full', isListening ? 'bg-primary animate-pulse' : 'bg-muted')} />
                   <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                    {isListening ? 'Listening…' : isChecking ? 'AI checking grammar…' : 'Last utterance'}
+                    {isListening ? 'Listening…' : 'Last utterance'}
                   </span>
-                  {isChecking && <Loader2 className="h-3 w-3 animate-spin text-primary ml-auto" />}
                 </div>
                 {transcript && (
                   <p className="text-sm font-medium text-foreground italic">"{transcript}"</p>
@@ -279,24 +337,31 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
             </Card>
           )}
 
-          {/* Grammar correction */}
-          {recentCorrection && (
+          {/* Grammar correction card */}
+          {correction && (
             <Card className="border-2 border-destructive bg-destructive/10 animate-in fade-in slide-in-from-top-4 duration-300">
               <CardContent className="p-4 space-y-2">
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="h-4 w-4 text-destructive" />
-                  <span className="text-xs font-bold uppercase tracking-widest text-destructive">
-                    Grammar Error — +1 counted
-                  </span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 text-destructive" />
+                    <span className="text-xs font-bold uppercase tracking-widest text-destructive">
+                      Grammar Error — +1 counted
+                    </span>
+                  </div>
+                  {correction.enhanced && (
+                    <span className="text-[9px] font-black uppercase tracking-widest text-violet-500 bg-violet-500/10 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <Sparkles className="h-2.5 w-2.5" /> AI
+                    </span>
+                  )}
                 </div>
                 <p className="text-sm text-destructive font-medium line-through">
-                  "{recentCorrection.incorrect}"
+                  "{correction.originalText}"
                 </p>
                 <p className="text-sm text-emerald-500 font-bold">
-                  "{recentCorrection.correct}"
+                  "{correction.correctedText}"
                 </p>
                 <p className="text-xs text-muted-foreground italic">
-                  {recentCorrection.explanation}
+                  {correction.explanation}
                 </p>
               </CardContent>
             </Card>
@@ -336,9 +401,7 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
                   <div className="text-center space-y-3">
                     <AlertCircle className="h-8 w-8 text-destructive mx-auto" />
                     <p className="text-sm font-bold text-destructive">Speech recognition not supported</p>
-                    <p className="text-xs text-muted-foreground">
-                      Please use Chrome or Edge browser to use voice features.
-                    </p>
+                    <p className="text-xs text-muted-foreground">Please use Chrome or Edge.</p>
                   </div>
                 ) : isAtLimit ? (
                   <div className="text-center space-y-2">
@@ -352,11 +415,10 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
                     <div className="flex flex-col items-center gap-1">
                       <div className={cn(
                         'w-3 h-3 rounded-full transition-all',
-                        isListening ? 'bg-primary animate-pulse scale-125' :
-                        isChecking ? 'bg-yellow-500 animate-pulse' : 'bg-muted'
+                        isListening ? 'bg-primary animate-pulse scale-125' : 'bg-muted'
                       )} />
                       <span className="text-xs font-bold text-muted-foreground">
-                        {isListening ? 'Listening' : isChecking ? 'Checking' : 'Ready'}
+                        {isListening ? 'Listening' : 'Ready'}
                       </span>
                     </div>
 
@@ -371,19 +433,10 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
                     ) : (
                       <Button
                         onClick={startListening}
-                        disabled={isChecking}
-                        className={cn(
-                          'h-14 px-10 rounded-2xl font-black uppercase tracking-widest gap-2 transition-all',
-                          isChecking
-                            ? 'bg-yellow-500 text-white opacity-80'
-                            : 'bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20'
-                        )}
+                        className="h-14 px-10 rounded-2xl font-black uppercase tracking-widest gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20"
                       >
-                        {isChecking ? (
-                          <><Loader2 className="h-5 w-5 animate-spin" />Checking…</>
-                        ) : (
-                          <><Mic className="h-6 w-6" />Speak</>
-                        )}
+                        <Mic className="h-6 w-6" />
+                        Speak
                       </Button>
                     )}
 
