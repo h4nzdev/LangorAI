@@ -67,13 +67,17 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
   const [topic]                         = useState(() => pickTopic(roomId));
   const [isSwitchingTurn, setIsSwitchingTurn] = useState(false);
 
-  const recognitionRef  = useRef<any>(null); // eslint-disable-line @typescript-eslint/no-explicit-any
-  const isMutedRef      = useRef(false);
-  const battleEndedRef  = useRef(false);
-  const startTimeRef    = useRef(Date.now());
+  const recognitionRef       = useRef<any>(null); // eslint-disable-line @typescript-eslint/no-explicit-any
+  const isMutedRef           = useRef(false);
+  const battleEndedRef       = useRef(false);
+  const startTimeRef         = useRef(Date.now());
+  // Always-current refs so recognition callbacks never hold stale closures
+  const opponentRef          = useRef(opponent);
+  const handleFinalRef       = useRef<(text: string) => void>(() => {});
 
-  useEffect(() => { isMutedRef.current   = isMuted;     }, [isMuted]);
+  useEffect(() => { isMutedRef.current    = isMuted;     }, [isMuted]);
   useEffect(() => { battleEndedRef.current = battleEnded; }, [battleEnded]);
+  useEffect(() => { opponentRef.current    = opponent;    }, [opponent]);
 
   // Timer
   useEffect(() => {
@@ -148,7 +152,7 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
 
       if (result.isFinal) {
         setMyTranscript('');
-        handleFinalUtterance(text);
+        handleFinalRef.current(text);
       }
     };
 
@@ -170,14 +174,16 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
   }, [broadcastSpeaking, broadcastTranscript]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Switch turn ──────────────────────────────────────────────────────────────
+  // Uses opponentRef so it never captures a stale opponent from the initial render
   const switchTurn = useCallback(() => {
-    if (!opponent || battleEndedRef.current) return;
+    if (!opponentRef.current || battleEndedRef.current) return;
+    const nextId = opponentRef.current.user_id;
     setIsSwitchingTurn(true);
     setTimeout(() => {
-      broadcastTurnChange(opponent.user_id);
+      broadcastTurnChange(nextId);
       setIsSwitchingTurn(false);
-    }, 1500); // brief pause so player can read the result
-  }, [opponent, broadcastTurnChange]);
+    }, 1500);
+  }, [broadcastTurnChange]);
 
   // ── Grammar check & turn hand-off ────────────────────────────────────────────
   const handleFinalUtterance = useCallback(async (text: string) => {
@@ -234,12 +240,16 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
     }
   }, [reportError, switchTurn]);
 
+  // Keep handleFinalRef in sync so startRecognition never calls a stale version
+  useEffect(() => { handleFinalRef.current = handleFinalUtterance; }, [handleFinalUtterance]);
+
   // ── Auto-manage mic based on turn ────────────────────────────────────────────
   useEffect(() => {
     if (room?.status !== 'active' || battleEnded || isSwitchingTurn) return;
 
     if (isMyTurn && !isMuted) {
-      setTimeout(() => startRecognition(), 300);
+      const timer = setTimeout(() => startRecognition(), 400);
+      return () => clearTimeout(timer);
     } else {
       stopRecognition();
     }
