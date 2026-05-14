@@ -1,17 +1,15 @@
-https://zqnpozwkdhuuzonsfueo.supabase.co/auth/v1/signup 500 (Internal Server Error)
-(anonymous) @ helpers.ts:109
-_handleRequest @ fetch.ts:221
-_request @ fetch.ts:194
-signInAnonymously @ GoTrueClient.ts:691
-(anonymous) @ page.tsx:134
-await in (anonymous)
-(anonymous) @ page.tsx:118
-executeDispatch @ react-dom-client.development.js:16970
-runWithFiberInDEV @ react-dom-client.development.js:871
-processDispatchQueue @ react-dom-client.development.js:17020
-(anonymous) @ react-dom-client.development.js:17621
-batchedUpdates$1 @ react-dom-client.development.js:3311
-dispatchEventForPluginEventSystem @ react-dom-client.development.js:17174
-dispatchEvent @ react-dom-client.development.js:21357
-dispatchDiscreteEvent @ react-dom-client.development.js:21325Understand this error
-installHook.js:1 [Auth] signInAnonymously failed: Database error creating anonymous user
+ useSearchParams() should be wrapped in a suspense boundary at page "/practice". Read more: https://nextjs.org/docs/messages/missing-suspense-with-csr-bailout
+    at g (/vercel/path0/.next/server/chunks/120.js:1:97691)
+    at m (/vercel/path0/.next/server/chunks/120.js:67:15615)
+    at F (/vercel/path0/.next/server/app/practice/page.js:92:6845)
+    at n3 (/vercel/path0/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:2:82831)
+    at n6 (/vercel/path0/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:2:84601)
+    at n5 (/vercel/path0/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:2:104801)
+    at n7 (/vercel/path0/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:2:102219)
+    at n8 (/vercel/path0/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:2:83183)
+    at n6 (/vercel/path0/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:2:84647)
+    at n6 (/vercel/path0/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:2:101560)
+Error occurred prerendering page "/practice". Read more: https://nextjs.org/docs/messages/prerender-error
+Export encountered an error on /practice/page: /practice, exiting the build.
+ ⨯ Next.js build worker exited with code: 1 and signal: null
+Error: Command "npm run build" exited with 1

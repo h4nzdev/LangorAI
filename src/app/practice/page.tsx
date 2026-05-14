@@ -1,9 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
@@ -24,7 +23,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { startPracticeSession, summarizeSession, type PracticeOutput } from '@/ai/flows/practice-flow';
-import avatarImage from '@/assets/avatar1.png';
+import { MoleculeVisualizer } from '@/components/practice/MoleculeVisualizer';
 
 interface SpeechRecognitionEvent extends Event {
   results: SpeechRecognitionResultList;
@@ -41,7 +40,7 @@ interface SpeechRecognition extends EventTarget {
   onerror: (event: any) => void;
 }
 
-export default function PracticeSession() {
+function PracticeSessionContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
@@ -301,19 +300,19 @@ export default function PracticeSession() {
         <div className="w-full max-w-2xl mx-auto flex flex-col items-center gap-6 mt-4">
           <div className="relative w-full flex flex-col items-center">
             <div className={cn(
-              "relative w-full max-w-md aspect-[3/4] rounded-3xl overflow-hidden border-2 shadow-2xl transition-all duration-500",
-              (isThinking || isSpeaking) 
-                ? "border-accent shadow-[0_0_30px_rgba(var(--accent),0.4)]" 
-                : "border-border/50"
+              "relative w-full max-w-md aspect-[3/4] rounded-3xl overflow-hidden border-2 shadow-2xl transition-all duration-500 bg-[#030308]",
+              (isThinking || isSpeaking)
+                ? "border-accent shadow-[0_0_40px_rgba(var(--accent),0.5)]"
+                : isListening
+                ? "border-primary/50 shadow-[0_0_20px_rgba(var(--primary),0.2)]"
+                : "border-border/30"
             )}>
-              <Image
-                src={avatarImage}
-                alt="Interviewer"
-                fill
-                className="object-cover object-center bg-black"
-                priority
+              <MoleculeVisualizer
+                isThinking={isThinking}
+                isSpeaking={isSpeaking}
+                isListening={isListening}
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent pointer-events-none" />
               <div className="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 bg-black/40 backdrop-blur-md rounded-full border border-white/10">
                 <div className={cn(
                   "h-2 w-2 rounded-full animate-pulse",
@@ -413,5 +412,24 @@ function ControlBtn({ icon, label, onClick }: { icon: React.ReactNode, label: st
       <div className="h-5 w-5 opacity-80">{icon}</div>
       <span className="text-[8px] font-black tracking-[0.2em] uppercase opacity-60">{label}</span>
     </Button>
+  );
+}
+
+function PracticeLoading() {
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="flex flex-col items-center gap-4">
+        <div className="h-10 w-10 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+        <p className="text-muted-foreground text-sm font-medium">Initializing session…</p>
+      </div>
+    </div>
+  );
+}
+
+export default function PracticeSession() {
+  return (
+    <Suspense fallback={<PracticeLoading />}>
+      <PracticeSessionContent />
+    </Suspense>
   );
 }
