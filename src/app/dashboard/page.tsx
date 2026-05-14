@@ -3,23 +3,24 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { 
+import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
   DialogFooter,
-} from "@/components/ui/dialog";
-import { 
-  Bell, 
-  Mic, 
-  BarChart3, 
+} from '@/components/ui/dialog';
+import {
+  Bell,
+  Mic,
+  BarChart3,
   Flame,
   Zap,
   LayoutGrid,
@@ -28,11 +29,12 @@ import {
   MessageSquare,
   AlertCircle,
   Settings as SettingsIcon,
-  ShieldAlert
+  ShieldAlert,
 } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { cn } from '@/lib/utils';
 import { Navigation } from '@/components/navigation';
+import { createClient } from '@/lib/supabase/client';
 
 interface Activity {
   id: string;
@@ -69,6 +71,23 @@ const SCENARIOS = [
   { id: 'reporting', name: 'Reporting', icon: <BarChart3 className="h-4 w-4" />, description: 'Executive presentation mode.' },
 ];
 
+function getCurrentDayIndex() {
+  // 0 = Monday … 6 = Sunday
+  const day = new Date().getDay(); // 0 Sun, 1 Mon … 6 Sat
+  return day === 0 ? 6 : day - 1;
+}
+
+function buildRecommendations(goal: string, level: string): Activity[] {
+  let filtered = ALL_ACTIVITIES.filter(a => a.goal === goal && a.level === level);
+  if (filtered.length < 4) {
+    filtered = [...filtered, ...ALL_ACTIVITIES.filter(a => a.goal === goal && !filtered.find(f => f.id === a.id))];
+  }
+  if (filtered.length < 4) {
+    filtered = [...filtered, ...ALL_ACTIVITIES.filter(a => !filtered.find(f => f.id === a.id)).slice(0, 4 - filtered.length)];
+  }
+  return filtered.slice(0, 4);
+}
+
 export default function Dashboard() {
   const router = useRouter();
   const [userName, setUserName] = useState('User');
@@ -77,13 +96,9 @@ export default function Dashboard() {
   const [userLevel, setUserLevel] = useState('Intermediate');
   const [recommendations, setRecommendations] = useState<Activity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [stats, setStats] = useState({
-    streak: 0,
-    sessions: 0,
-    confidence: 0
-  });
+  const [stats, setStats] = useState({ streak: 0, sessions: 0, confidence: 0 });
 
-  // Setup Dialog State
+  // Dialog state
   const [setupStep, setSetupStep] = useState(1);
   const [selectedInterviewer, setSelectedInterviewer] = useState(INTERVIEWERS[0].id);
   const [selectedScenario, setSelectedScenario] = useState(SCENARIOS[0].id);
@@ -91,76 +106,110 @@ export default function Dashboard() {
   const [hasApiKey, setHasApiKey] = useState(true);
 
   useEffect(() => {
-    // Basic user info
-    const savedName = localStorage.getItem('USER_NAME');
-    if (savedName) setUserName(savedName);
+    const loadProfile = async () => {
+      // Check for API key
+      const apiKey = localStorage.getItem('GOOGLE_AI_API_KEY');
+      setHasApiKey(!!apiKey);
 
-    const savedAvatar = localStorage.getItem('USER_AVATAR');
-    if (savedAvatar) setUserAvatar(savedAvatar);
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
 
-    const savedGoal = localStorage.getItem('USER_GOAL') || 'Career Growth';
-    setUserGoal(savedGoal);
+      let goal = 'Career Growth';
+      let level = 'Intermediate';
 
-    const savedLevel = localStorage.getItem('USER_LEVEL') || 'Intermediate';
-    setUserLevel(savedLevel);
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
 
-    // Progress stats
-    const streak = parseInt(localStorage.getItem('STREAK_COUNT') || '0');
-    const sessions = parseInt(localStorage.getItem('SESSIONS_COUNT') || '0');
-    
-    // Confidence starts at 0 for new users
-    const calculatedConfidence = Math.min(sessions * 5, 100);
+        if (profile) {
+          setUserName(profile.username);
+          setUserAvatar(profile.avatar ?? '👤');
+          goal = profile.learning_goal || 'Career Growth';
+          level = profile.proficiency_level || 'Intermediate';
+          setUserGoal(goal);
+          setUserLevel(level);
 
-    setStats({
-      streak,
-      sessions,
-      confidence: calculatedConfidence
-    });
+          const sessions = profile.total_sessions ?? 0;
+          setStats({
+            streak: profile.streak ?? 0,
+            sessions,
+            confidence: Math.min(sessions * 5, 100),
+          });
 
-    // Enhanced recommendation engine (matching goal and level)
-    try {
-      let filtered = ALL_ACTIVITIES.filter(a => a.goal === savedGoal && a.level === savedLevel);
-      
-      if (filtered.length < 4) {
-        filtered = [...filtered, ...ALL_ACTIVITIES.filter(a => a.goal === goal && !filtered.find(f => f.id === a.id))];
+          // Keep localStorage in sync
+          localStorage.setItem('USER_NAME', profile.username);
+          localStorage.setItem('USER_AVATAR', profile.avatar ?? '👤');
+          localStorage.setItem('USER_GOAL', goal);
+          localStorage.setItem('USER_LEVEL', level);
+        }
+      } else {
+        // Fallback to localStorage while auth loads
+        const savedName = localStorage.getItem('USER_NAME');
+        if (savedName) setUserName(savedName);
+        setUserAvatar(localStorage.getItem('USER_AVATAR') || '👤');
+        goal = localStorage.getItem('USER_GOAL') || 'Career Growth';
+        level = localStorage.getItem('USER_LEVEL') || 'Intermediate';
+        setUserGoal(goal);
+        setUserLevel(level);
+
+        const sessions = parseInt(localStorage.getItem('SESSIONS_COUNT') || '0');
+        setStats({
+          streak: parseInt(localStorage.getItem('STREAK_COUNT') || '0'),
+          sessions,
+          confidence: Math.min(sessions * 5, 100),
+        });
       }
-      if (filtered.length < 4) {
-        filtered = [...filtered, ...ALL_ACTIVITIES.filter(a => !filtered.find(f => f.id === a.id)).slice(0, 4 - filtered.length)];
-      }
-      setRecommendations(filtered.slice(0, 4));
-    } catch (e) {
-      console.error("Failed to generate recommendations:", e);
-      setRecommendations(ALL_ACTIVITIES.slice(0, 4));
-    }
+
+      setRecommendations(buildRecommendations(goal, level));
+      setIsLoading(false);
+    };
+
+    loadProfile();
   }, []);
 
   const handleStartSession = () => {
     const interviewer = INTERVIEWERS.find(i => i.id === selectedInterviewer);
     const scenario = SCENARIOS.find(s => s.id === selectedScenario);
-    
     setIsDialogOpen(false);
-    router.push(`/practice?topic=${encodeURIComponent(scenario?.name || 'Casual')}&interviewer=${encodeURIComponent(interviewer?.name || 'Langor AI')}`);
+    router.push(
+      `/practice?topic=${encodeURIComponent(scenario?.name || 'Casual')}&interviewer=${encodeURIComponent(interviewer?.name || 'Langor AI')}`
+    );
   };
 
   const getLevelLabel = (confidence: number) => {
-    if (confidence === 0) return "New Learner";
-    if (confidence < 30) return "Beginner";
-    if (confidence < 60) return "Intermediate";
-    if (confidence < 90) return "Advanced";
-    return "Fluent";
+    if (confidence === 0) return 'New Learner';
+    if (confidence < 30) return 'Beginner';
+    if (confidence < 60) return 'Intermediate';
+    if (confidence < 90) return 'Advanced';
+    return 'Fluent';
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-10 w-10 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+          <p className="text-muted-foreground text-sm font-medium">Loading your profile…</p>
+        </div>
+      </div>
+    );
+  }
+
+  const todayIdx = getCurrentDayIndex();
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col md:flex-row font-body transition-colors duration-300">
       <Navigation />
-      
+
       <div className="flex-1 flex flex-col md:pl-64">
+        {/* Header */}
         <header className="flex items-center justify-between px-6 py-4 max-w-4xl mx-auto w-full shrink-0">
           <Link href="/profile" className="md:hidden">
             <Avatar className="h-10 w-10 border-2 border-primary/20 bg-card hover:border-primary/50 transition-colors">
-              <AvatarFallback className="bg-card text-xl">
-                {userAvatar}
-              </AvatarFallback>
+              <AvatarFallback className="bg-card text-xl">{userAvatar}</AvatarFallback>
             </Avatar>
           </Link>
           <span className="text-xl font-bold tracking-tight md:hidden text-foreground">Langor AI</span>
@@ -170,9 +219,7 @@ export default function Dashboard() {
             </Button>
             <Link href="/profile">
               <Avatar className="h-10 w-10 border-2 border-primary/20 bg-card hover:border-primary/50 transition-colors">
-                <AvatarFallback className="bg-card text-xl">
-                  {userAvatar}
-                </AvatarFallback>
+                <AvatarFallback className="bg-card text-xl">{userAvatar}</AvatarFallback>
               </Avatar>
             </Link>
           </div>
@@ -183,11 +230,15 @@ export default function Dashboard() {
 
         <main className="flex-1 overflow-auto pb-24 md:pb-12">
           <div className="max-w-4xl mx-auto px-6 space-y-8">
+            {/* Welcome */}
             <div className="space-y-1">
               <h1 className="text-3xl font-bold text-foreground">Welcome back, {userName}!</h1>
-              <p className="text-muted-foreground text-sm font-medium">Goal: <span className="text-primary">{userGoal}</span> • Level: <span className="text-primary">{userLevel}</span></p>
+              <p className="text-muted-foreground text-sm font-medium">
+                Goal: <span className="text-primary">{userGoal}</span> • Level: <span className="text-primary">{userLevel}</span>
+              </p>
             </div>
 
+            {/* Stats */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Card className="bg-card border-none shadow-xl">
                 <CardContent className="p-6 space-y-4">
@@ -225,7 +276,7 @@ export default function Dashboard() {
                         <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Day Streak</p>
                       </div>
                     </div>
-                    
+
                     <div className="w-px h-12 bg-border" />
 
                     <div className="flex flex-col items-center gap-2">
@@ -242,7 +293,7 @@ export default function Dashboard() {
               </Card>
             </div>
 
-            {/* Start AI Session with Dialog */}
+            {/* Start Session Dialog */}
             <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) setSetupStep(1); }}>
               <DialogTrigger asChild>
                 <Button className="w-full h-16 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground text-lg font-bold gap-3 shadow-lg shadow-primary/20 group transition-all">
@@ -254,7 +305,7 @@ export default function Dashboard() {
               </DialogTrigger>
               <DialogContent className="sm:max-w-md bg-card border-border rounded-3xl overflow-hidden p-0 gap-0">
                 {!hasApiKey ? (
-                  <div className="p-0">
+                  <div>
                     <div className="bg-destructive/10 p-8 flex flex-col items-center text-center space-y-4 border-b border-border/50">
                       <div className="h-20 w-20 rounded-3xl bg-destructive/20 flex items-center justify-center text-destructive border-2 border-destructive/30 animate-pulse">
                         <ShieldAlert className="h-10 w-10" />
@@ -275,10 +326,7 @@ export default function Dashboard() {
                         <h4 className="text-[10px] font-black uppercase tracking-widest text-foreground">Action Required</h4>
                         <p className="text-xs text-muted-foreground italic">"Head to settings to securely input your personal API key from Google AI Studio."</p>
                       </div>
-                      <Button 
-                        asChild
-                        className="w-full h-14 rounded-xl bg-foreground text-background font-black uppercase tracking-widest gap-2 shadow-xl hover:bg-foreground/90"
-                      >
+                      <Button asChild className="w-full h-14 rounded-xl bg-foreground text-background font-black uppercase tracking-widest gap-2 shadow-xl hover:bg-foreground/90">
                         <Link href="/settings">
                           <SettingsIcon className="h-5 w-5" /> Go to Settings
                         </Link>
@@ -307,10 +355,10 @@ export default function Dashboard() {
                               key={i.id}
                               onClick={() => setSelectedInterviewer(i.id)}
                               className={cn(
-                                "w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition-all text-left",
-                                selectedInterviewer === i.id 
-                                  ? "bg-primary/5 border-primary shadow-lg shadow-primary/10" 
-                                  : "bg-background border-border hover:border-primary/30"
+                                'w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition-all text-left',
+                                selectedInterviewer === i.id
+                                  ? 'bg-primary/5 border-primary shadow-lg shadow-primary/10'
+                                  : 'bg-background border-border hover:border-primary/30'
                               )}
                             >
                               <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center text-2xl border border-border">
@@ -332,15 +380,17 @@ export default function Dashboard() {
                               key={s.id}
                               onClick={() => setSelectedScenario(s.id)}
                               className={cn(
-                                "w-full flex items-center gap-4 p-5 rounded-2xl border-2 transition-all text-left",
-                                selectedScenario === s.id 
-                                  ? "bg-accent/5 border-accent shadow-lg shadow-accent/10" 
-                                  : "bg-background border-border hover:border-accent/30"
+                                'w-full flex items-center gap-4 p-5 rounded-2xl border-2 transition-all text-left',
+                                selectedScenario === s.id
+                                  ? 'bg-accent/5 border-accent shadow-lg shadow-accent/10'
+                                  : 'bg-background border-border hover:border-accent/30'
                               )}
                             >
                               <div className={cn(
-                                "h-10 w-10 rounded-xl flex items-center justify-center border",
-                                selectedScenario === s.id ? "bg-accent/20 border-accent/40 text-accent" : "bg-muted border-border text-muted-foreground"
+                                'h-10 w-10 rounded-xl flex items-center justify-center border',
+                                selectedScenario === s.id
+                                  ? 'bg-accent/20 border-accent/40 text-accent'
+                                  : 'bg-muted border-border text-muted-foreground'
                               )}>
                                 {s.icon}
                               </div>
@@ -357,23 +407,23 @@ export default function Dashboard() {
 
                     <DialogFooter className="p-6 pt-0">
                       {setupStep === 1 ? (
-                        <Button 
-                          onClick={() => setSetupStep(2)} 
+                        <Button
+                          onClick={() => setSetupStep(2)}
                           className="w-full h-12 rounded-xl bg-foreground text-background font-black uppercase tracking-widest gap-2 group"
                         >
                           Next: Choose Scene <ChevronRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
                         </Button>
                       ) : (
                         <div className="flex flex-col gap-2 w-full">
-                          <Button 
-                            onClick={handleStartSession} 
+                          <Button
+                            onClick={handleStartSession}
                             className="w-full h-14 rounded-xl bg-primary text-primary-foreground font-black uppercase tracking-widest gap-2 shadow-xl shadow-primary/20"
                           >
                             <Zap className="h-5 w-5 fill-current" /> Initialize Link
                           </Button>
-                          <Button 
-                            variant="ghost" 
-                            onClick={() => setSetupStep(1)} 
+                          <Button
+                            variant="ghost"
+                            onClick={() => setSetupStep(1)}
                             className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground h-8"
                           >
                             Back to Tutor Selection
@@ -386,6 +436,7 @@ export default function Dashboard() {
               </DialogContent>
             </Dialog>
 
+            {/* Weekly Activity */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-bold text-foreground">Weekly Activity</h2>
@@ -393,23 +444,20 @@ export default function Dashboard() {
               </div>
               <div className="flex items-end justify-between px-2 h-20 gap-2">
                 {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, i) => {
-                  const todayIdx = getCurrentDayIndex();
-                  // A day is active if it's within the streak count leading up to today
                   const isActive = i <= todayIdx && (todayIdx - i) < stats.streak;
-                  
                   return (
                     <div key={`${day}-${i}`} className="flex flex-col items-center gap-2 flex-1">
-                      <div 
+                      <div
                         className={cn(
-                          "w-full rounded-t-lg transition-all duration-500",
-                          isActive 
-                            ? "bg-primary h-12 shadow-[0_0_15px_rgba(var(--primary),0.4)]" 
-                            : "bg-muted h-6 hover:bg-muted/80"
-                        )} 
+                          'w-full rounded-t-lg transition-all duration-500',
+                          isActive
+                            ? 'bg-primary h-12 shadow-[0_0_15px_rgba(var(--primary),0.4)]'
+                            : 'bg-muted h-6 hover:bg-muted/80'
+                        )}
                       />
                       <span className={cn(
-                        "text-[10px] font-bold uppercase tracking-widest",
-                        i === todayIdx ? "text-primary" : "text-muted-foreground"
+                        'text-[10px] font-bold uppercase tracking-widest',
+                        i === todayIdx ? 'text-primary' : 'text-muted-foreground'
                       )}>{day}</span>
                     </div>
                   );
@@ -417,26 +465,29 @@ export default function Dashboard() {
               </div>
             </div>
 
+            {/* Recommended for You */}
             <div className="space-y-4 pb-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-bold text-foreground">Recommended for You</h2>
                 <div className="bg-primary/10 px-3 py-1 rounded-full flex items-center gap-2">
                   <LayoutGrid className="h-3 w-3 text-primary" />
-                  <span className="text-[10px] font-black uppercase text-primary tracking-wider">{userGoal} • {userLevel} Focused</span>
+                  <span className="text-[10px] font-black uppercase text-primary tracking-wider">
+                    {userGoal} • {userLevel} Focused
+                  </span>
                 </div>
               </div>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 {recommendations.length > 0 ? recommendations.map((item) => {
                   const img = PlaceHolderImages.find(p => p.id === item.imageId);
                   return (
-                    <Link key={item.id} href={`/practice/roadmap/${item.id}`} className="block h-full">
+                    <Link key={item.id} href="/practice" className="block h-full">
                       <Card className="bg-card border-none overflow-hidden hover:ring-2 ring-primary/50 transition-all cursor-pointer shadow-lg group h-full">
                         <div className="relative aspect-video w-full overflow-hidden">
                           {img && (
-                            <Image 
-                              src={img.imageUrl} 
-                              alt={item.title} 
-                              fill 
+                            <Image
+                              src={img.imageUrl}
+                              alt={item.title}
+                              fill
                               className="object-cover group-hover:scale-105 transition-transform duration-300"
                             />
                           )}
@@ -452,7 +503,7 @@ export default function Dashboard() {
                   );
                 }) : (
                   <div className="col-span-full py-8 text-center bg-card rounded-3xl border border-dashed border-border">
-                    <p className="text-muted-foreground text-sm italic">Finding perfect matches for your profile...</p>
+                    <p className="text-muted-foreground text-sm italic">Finding perfect matches for your profile…</p>
                   </div>
                 )}
               </div>
