@@ -35,6 +35,7 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { cn } from '@/lib/utils';
 import { Navigation } from '@/components/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { AnalyticsSection } from '@/components/dashboard/AnalyticsSection';
 
 interface Activity {
   id: string;
@@ -507,6 +508,11 @@ export default function Dashboard() {
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* ── Analytics ─────────────────────────────────────────────── */}
+            <div className="mt-6">
+              <AnalyticsSection />
             </div>
           </div>
         </main>

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { BattleMenu, Matchmaking, BattleRoom, BattleResult } from '@/components/battle';
+import type { BattleHistoryItem } from '@/components/battle/BattleMenu';
 import { Navigation } from '@/components/navigation';
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -24,6 +25,7 @@ interface UserBattleStats {
   totalLosses: number;
   totalDraws: number;
   totalBattles: number;
+  streak: number;
 }
 
 export default function BattlePage() {
@@ -38,7 +40,9 @@ export default function BattlePage() {
     totalLosses: 0,
     totalDraws: 0,
     totalBattles: 0,
+    streak: 0,
   });
+  const [battleHistory, setBattleHistory] = useState<BattleHistoryItem[]>([]);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenError, setFullscreenError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -48,24 +52,75 @@ export default function BattlePage() {
   const loadStats = useCallback(async () => {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('wins, losses, draws, points')
-        .eq('id', user.id)
-        .single();
-      if (profile) {
-        const wins = profile.wins ?? 0;
-        const losses = profile.losses ?? 0;
-        const draws = profile.draws ?? 0;
-        setUserStats({
-          totalPoints: profile.points ?? 0,
-          totalWins: wins,
-          totalLosses: losses,
-          totalDraws: draws,
-          totalBattles: wins + losses + draws,
+    if (!user) return;
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('wins, losses, draws, points, streak')
+      .eq('id', user.id)
+      .single();
+
+    if (profile) {
+      const wins = profile.wins ?? 0;
+      const losses = profile.losses ?? 0;
+      const draws = profile.draws ?? 0;
+      setUserStats({
+        totalPoints: profile.points ?? 0,
+        totalWins: wins,
+        totalLosses: losses,
+        totalDraws: draws,
+        totalBattles: wins + losses + draws,
+        streak: profile.streak ?? 0,
+      });
+    }
+
+    // Fetch recent battle history
+    const { data: participantRows } = await supabase
+      .from('battle_participants')
+      .select('room_id, error_count, accuracy')
+      .eq('user_id', user.id)
+      .order('room_id', { ascending: false })
+      .limit(10);
+
+    if (participantRows && participantRows.length > 0) {
+      const roomIds = participantRows.map(r => r.room_id as string);
+      const { data: rooms } = await supabase
+        .from('battle_rooms')
+        .select('id, winner_id, error_limit, created_at, status')
+        .in('id', roomIds)
+        .eq('status', 'completed')
+        .order('created_at', { ascending: false });
+
+      const history: BattleHistoryItem[] = [];
+      for (const room of rooms ?? []) {
+        const myRow = participantRows.find(r => r.room_id === room.id);
+        if (!myRow) continue;
+
+        let outcome: 'win' | 'loss' | 'draw';
+        if (room.winner_id === null) outcome = 'draw';
+        else if (room.winner_id === user.id) outcome = 'win';
+        else outcome = 'loss';
+
+        const { data: oppRow } = await supabase
+          .from('battle_participants')
+          .select('profiles(username)')
+          .eq('room_id', room.id)
+          .neq('user_id', user.id)
+          .single();
+        const oppName = (oppRow?.profiles as { username?: string } | null)?.username ?? 'Opponent';
+
+        history.push({
+          id: room.id,
+          outcome,
+          opponentName: oppName,
+          errorCount: myRow.error_count ?? 0,
+          accuracy: Math.round(myRow.accuracy ?? 100),
+          errorLimit: room.error_limit,
+          createdAt: room.created_at,
         });
+        if (history.length >= 5) break;
       }
+      setBattleHistory(history);
     }
   }, []);
 
@@ -198,7 +253,19 @@ export default function BattlePage() {
         )}
 
         {battleStatus === 'menu' && (
-          <BattleMenu onStart={handleStartMatchmaking} />
+          <BattleMenu
+            onStart={handleStartMatchmaking}
+            stats={{
+              wins: userStats.totalWins,
+              losses: userStats.totalLosses,
+              streak: userStats.streak,
+              points: userStats.totalPoints,
+              winRate: userStats.totalBattles > 0
+                ? Math.round((userStats.totalWins / userStats.totalBattles) * 100)
+                : 0,
+            }}
+            battleHistory={battleHistory}
+          />
         )}
 
         {battleStatus === 'matchmaking' && (

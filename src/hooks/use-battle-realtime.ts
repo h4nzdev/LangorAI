@@ -18,17 +18,20 @@ export interface BattleRoomState {
   error_limit: number
 }
 
-interface BroadcastErrorPayload   { user_id: string; error_count: number; accuracy: number }
-interface BroadcastEndPayload     { winner_id: string | null }
-interface BroadcastSpeakPayload   { user_id: string; isSpeaking: boolean }
+interface BroadcastErrorPayload      { user_id: string; error_count: number; accuracy: number }
+interface BroadcastEndPayload        { winner_id: string | null }
+interface BroadcastSpeakPayload      { user_id: string; isSpeaking: boolean }
 interface BroadcastTranscriptPayload { user_id: string; text: string }
+interface BroadcastTurnPayload       { next_speaker_id: string }
 
 export function useBattleRealtime(roomId: string | null) {
-  const [participants, setParticipants] = useState<BattleParticipant[]>([])
-  const [room, setRoom]                 = useState<BattleRoomState | null>(null)
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [participants, setParticipants]         = useState<BattleParticipant[]>([])
+  const [room, setRoom]                         = useState<BattleRoomState | null>(null)
+  const [currentUserId, setCurrentUserId]       = useState<string | null>(null)
   const [opponentIsSpeaking, setOpponentIsSpeaking] = useState(false)
   const [opponentTranscript, setOpponentTranscript] = useState('')
+  const [currentSpeakerId, setCurrentSpeakerId]  = useState<string | null>(null)
+
   const channelRef = useRef<RealtimeChannel | null>(null)
   const userIdRef  = useRef<string | null>(null)
 
@@ -55,7 +58,13 @@ export function useBattleRealtime(roomId: string | null) {
         setRoom({ status: roomData.status, winner_id: roomData.winner_id, error_limit: roomData.error_limit })
       }
       if (rawParticipants) {
-        setParticipants(rawParticipants.map(normalizeParticipant))
+        const ps = rawParticipants.map(normalizeParticipant)
+        setParticipants(ps)
+        // Deterministic first speaker: lexicographically smaller user_id goes first
+        if (ps.length === 2) {
+          const first = [...ps].sort((a, b) => a.user_id.localeCompare(b.user_id))[0]
+          setCurrentSpeakerId(first.user_id)
+        }
       }
     }
 
@@ -86,6 +95,13 @@ export function useBattleRealtime(roomId: string | null) {
           setOpponentTranscript(payload.text)
         }
       })
+      .on<BroadcastTurnPayload>('broadcast', { event: 'turn_change' }, ({ payload }) => {
+        setCurrentSpeakerId(payload.next_speaker_id)
+        // Clear opponent transcript when their turn starts
+        if (payload.next_speaker_id === userIdRef.current) {
+          setOpponentTranscript('')
+        }
+      })
       .subscribe()
 
     return () => {
@@ -104,8 +120,7 @@ export function useBattleRealtime(roomId: string | null) {
   const broadcastSpeaking = useCallback((isSpeaking: boolean) => {
     if (!channelRef.current || !userIdRef.current) return
     channelRef.current.send({
-      type: 'broadcast',
-      event: 'speaking_state',
+      type: 'broadcast', event: 'speaking_state',
       payload: { user_id: userIdRef.current, isSpeaking },
     })
   }, [])
@@ -113,19 +128,27 @@ export function useBattleRealtime(roomId: string | null) {
   const broadcastTranscript = useCallback((text: string) => {
     if (!channelRef.current || !userIdRef.current) return
     channelRef.current.send({
-      type: 'broadcast',
-      event: 'live_transcript',
+      type: 'broadcast', event: 'live_transcript',
       payload: { user_id: userIdRef.current, text },
     })
+  }, [])
+
+  const broadcastTurnChange = useCallback((nextSpeakerId: string) => {
+    if (!channelRef.current) return
+    channelRef.current.send({
+      type: 'broadcast', event: 'turn_change',
+      payload: { next_speaker_id: nextSpeakerId },
+    })
+    setCurrentSpeakerId(nextSpeakerId)
   }, [])
 
   const player   = participants.find(p => p.user_id === currentUserId) ?? null
   const opponent = participants.find(p => p.user_id !== currentUserId) ?? null
 
   return {
-    room, player, opponent, currentUserId,
+    room, player, opponent, currentUserId, currentSpeakerId,
     opponentIsSpeaking, opponentTranscript,
-    reportError, broadcastSpeaking, broadcastTranscript,
+    reportError, broadcastSpeaking, broadcastTranscript, broadcastTurnChange,
   }
 }
 
