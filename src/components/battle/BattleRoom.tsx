@@ -1,17 +1,38 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { PlayerCard } from './PlayerCard';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import {
-  Mic, MicOff, MessageSquare, Lock, AlertCircle, CheckCircle2, Sparkles, Zap,
-} from 'lucide-react';
+import { Mic, MicOff, Sparkles, Zap, AlertCircle, CheckCircle2, PhoneOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useBattleRealtime } from '@/hooks/use-battle-realtime';
 import { useToast } from '@/hooks/use-toast';
 import { checkGrammar } from '@/lib/grammar-checker';
 
+// ── Conversation topics ────────────────────────────────────────────────────────
+const TOPICS = [
+  'Talk about your favourite hobby or passion',
+  'Describe your ideal weekend',
+  'What skill do you wish you had learned earlier?',
+  'Tell me about a place you would love to visit',
+  'What does your perfect morning routine look like?',
+  'Describe a person who has inspired you',
+  'What are the pros and cons of social media?',
+  'Talk about your favourite book, film, or series',
+  'What do you think is the most important quality in a friend?',
+  'Describe your dream job and why it appeals to you',
+  'What would you do if you had one free year with no obligations?',
+  'Talk about a challenge you have overcome',
+  'What technology has changed your life the most?',
+  'Describe your hometown and what makes it unique',
+  'What is something you are currently learning?',
+];
+
+function pickTopic(roomId: string): string {
+  const hash = roomId.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+  return TOPICS[hash % TOPICS.length];
+}
+
+// ── Types ──────────────────────────────────────────────────────────────────────
 interface BattleRoomProps {
   roomId: string;
   errorLimit: number;
@@ -25,108 +46,109 @@ interface BattleRoomProps {
   }) => void;
 }
 
-interface CorrectionCard {
+interface ErrorOverlay {
   originalText: string;
   correctedText: string;
   explanation: string;
-  enhanced?: boolean; // true when the explanation came from Gemini
+  enhanced: boolean;
 }
 
-interface LogEntry {
-  id: number;
-  text: string;
-  isError: boolean;
-}
-
+// ── Component ──────────────────────────────────────────────────────────────────
 export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps) {
-  const { room, player, opponent, currentUserId, reportError } = useBattleRealtime(roomId);
+  const {
+    room, player, opponent, currentUserId,
+    opponentIsSpeaking, opponentTranscript,
+    reportError, broadcastSpeaking, broadcastTranscript,
+  } = useBattleRealtime(roomId);
   const { toast } = useToast();
 
+  const [isMuted, setIsMuted]         = useState(false);
   const [isListening, setIsListening] = useState(false);
-  const [transcript, setTranscript] = useState('');
-  const [correction, setCorrection] = useState<CorrectionCard | null>(null);
-  const [battleLog, setBattleLog] = useState<LogEntry[]>([]);
-  const [battleEnded, setBattleEnded] = useState(false);
+  const [myTranscript, setMyTranscript] = useState('');
+  const [errorOverlay, setErrorOverlay] = useState<ErrorOverlay | null>(null);
+  const [correctFlash, setCorrectFlash] = useState(false);
+  const [battleEnded, setBattleEnded]   = useState(false);
   const [speechSupported, setSpeechSupported] = useState(true);
-  const [aiMode, setAiMode] = useState(false); // true = Gemini key found
-  const [logCounter, setLogCounter] = useState(0);
+  const [aiMode, setAiMode]             = useState(false);
+  const [elapsed, setElapsed]           = useState(0); // seconds
+  const [topic]                         = useState(() => pickTopic(roomId));
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef   = useRef<any>(null); // eslint-disable-line @typescript-eslint/no-explicit-any
+  const isMutedRef       = useRef(false);
+  const battleEndedRef   = useRef(false);
+  const startTimeRef     = useRef(Date.now());
+
+  // Sync refs
+  useEffect(() => { isMutedRef.current    = isMuted;     }, [isMuted]);
+  useEffect(() => { battleEndedRef.current = battleEnded; }, [battleEnded]);
+
+  // Timer
+  useEffect(() => {
+    const id = setInterval(() => setElapsed(Math.floor((Date.now() - startTimeRef.current) / 1000)), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const formatTime = (s: number) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SR) setSpeechSupported(false);
-
-    const key = localStorage.getItem('GEMINI_API_KEY');
-    setAiMode(!!key);
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition; // eslint-disable-line @typescript-eslint/no-explicit-any
+    if (!SR) { setSpeechSupported(false); return; }
+    setAiMode(!!localStorage.getItem('GEMINI_API_KEY'));
   }, []);
 
-  // Detect battle end
+  // ── Detect battle end ────────────────────────────────────────────────────────
   useEffect(() => {
     if (room?.status !== 'completed' || battleEnded) return;
     setBattleEnded(true);
+    stopRecognition();
 
-    const playerErrors = player?.error_count ?? 0;
+    const playerErrors  = player?.error_count ?? 0;
     const opponentErrors = opponent?.error_count ?? 0;
     const playerWon = room.winner_id === currentUserId;
-    const isDraw = !room.winner_id;
-    const fluencyScore = Math.round(100 - (playerErrors / errorLimit) * 50);
-    const pointsEarned = playerWon ? 20 : isDraw ? 10 : 5;
-
-    stopListening();
+    const isDraw    = !room.winner_id;
 
     setTimeout(() => {
       onBattleEnd({
         playerErrors,
         opponentErrors,
         playerAccuracy: player?.accuracy ?? 100,
-        fluencyScore,
-        pointsEarned,
+        fluencyScore: Math.round(100 - (playerErrors / errorLimit) * 50),
+        pointsEarned: playerWon ? 20 : isDraw ? 10 : 5,
         winner: playerWon ? 'player' : isDraw ? 'draw' : 'opponent',
       });
     }, 1200);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room?.status, room?.winner_id, battleEnded]);
 
-  const addLog = useCallback((text: string, isError: boolean) => {
-    setLogCounter(c => {
-      const id = c + 1;
-      setBattleLog(prev => [{ id, text, isError }, ...prev.slice(0, 4)]);
-      return id;
-    });
-  }, []);
-
-  const stopListening = useCallback(() => {
+  // ── Speech recognition ───────────────────────────────────────────────────────
+  const stopRecognition = useCallback(() => {
     if (recognitionRef.current) {
       recognitionRef.current.abort();
       recognitionRef.current = null;
     }
     setIsListening(false);
-  }, []);
+    broadcastSpeaking(false);
+  }, [broadcastSpeaking]);
 
-  const handleTranscript = useCallback(async (text: string) => {
-    // ── Step 1: instant local check ───────────────────────────────────────────
+  const handleFinalUtterance = useCallback(async (text: string) => {
+    if (!text.trim() || battleEndedRef.current) return;
+
+    // ── Instant local grammar check ──────────────────────────────────────────
     const local = checkGrammar(text);
 
     if (local.hasError && local.correctedText) {
-      setCorrection({
+      setErrorOverlay({
         originalText: local.originalText,
         correctedText: local.correctedText,
         explanation: local.explanation ?? '',
         enhanced: false,
       });
-      addLog(`❌ "${local.originalText.slice(0, 40)}…" → error`, true);
       await reportError();
-      setTimeout(() => setCorrection(null), 6000);
+      setTimeout(() => setErrorOverlay(null), 5000);
 
-      // ── Step 2 (optional): enhance explanation with Gemini in background ──
-      const apiKey = typeof window !== 'undefined'
-        ? (localStorage.getItem('GEMINI_API_KEY') || undefined)
-        : undefined;
-
+      // Optional Gemini enhancement in background
+      const apiKey = localStorage.getItem('GEMINI_API_KEY') || undefined;
       if (apiKey) {
         fetch('/api/battle/grammar', {
           method: 'POST',
@@ -134,33 +156,23 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
           body: JSON.stringify({ transcript: text, apiKey }),
         })
           .then(r => r.ok ? r.json() : null)
-          .then((data: { hasError: boolean; corrections: { incorrect: string; correct: string; explanation: string }[] } | null) => {
-            if (data?.hasError && data.corrections?.[0]) {
-              const c = data.corrections[0];
-              setCorrection(prev =>
-                prev ? {
-                  ...prev,
-                  correctedText: c.correct || prev.correctedText,
-                  explanation: c.explanation || prev.explanation,
-                  enhanced: true,
-                } : null
-              );
+          .then((d: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+            if (d?.hasError && d.corrections?.[0]) {
+              setErrorOverlay(prev => prev ? {
+                ...prev,
+                correctedText: d.corrections[0].correct || prev.correctedText,
+                explanation:   d.corrections[0].explanation || prev.explanation,
+                enhanced: true,
+              } : null);
             }
           })
-          .catch(() => null); // silent — local result already shown
+          .catch(() => null);
       }
-
       return;
     }
 
-    // ── No local error found ──────────────────────────────────────────────────
-    const preview = text.length > 48 ? text.slice(0, 48) + '…' : text;
-
-    // If Gemini key exists, also double-check for errors local rules missed
-    const apiKey = typeof window !== 'undefined'
-      ? (localStorage.getItem('GEMINI_API_KEY') || undefined)
-      : undefined;
-
+    // ── No local error: check via Gemini if available, else flash correct ─────
+    const apiKey = localStorage.getItem('GEMINI_API_KEY') || undefined;
     if (apiKey) {
       fetch('/api/battle/grammar', {
         method: 'POST',
@@ -168,292 +180,359 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
         body: JSON.stringify({ transcript: text, apiKey }),
       })
         .then(r => r.ok ? r.json() : null)
-        .then(async (data: { hasError: boolean; corrections: { incorrect: string; correct: string; explanation: string }[] } | null) => {
-          if (data?.hasError && data.corrections?.[0]) {
-            const c = data.corrections[0];
-            setCorrection({
-              originalText: c.incorrect,
-              correctedText: c.correct,
-              explanation: c.explanation,
-              enhanced: true,
-            });
-            addLog(`❌ "${c.incorrect.slice(0, 40)}" → AI flagged`, true);
+        .then(async (d: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+          if (d?.hasError && d.corrections?.[0]) {
+            const c = d.corrections[0];
+            setErrorOverlay({ originalText: c.incorrect, correctedText: c.correct, explanation: c.explanation, enhanced: true });
             await reportError();
-            setTimeout(() => setCorrection(null), 6000);
+            setTimeout(() => setErrorOverlay(null), 5000);
           } else {
-            addLog(`✅ "${preview}" — Correct!`, false);
+            showCorrectFlash();
           }
         })
-        .catch(() => {
-          addLog(`✅ "${preview}" — Correct!`, false);
-        });
+        .catch(() => showCorrectFlash());
     } else {
-      addLog(`✅ "${preview}" — Correct!`, false);
+      showCorrectFlash();
     }
-  }, [reportError, addLog]);
+  }, [reportError]);
 
-  const startListening = useCallback(() => {
-    if (isListening) return;
+  const showCorrectFlash = () => {
+    setCorrectFlash(true);
+    setTimeout(() => setCorrectFlash(false), 1200);
+  };
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SR) {
-      toast({ variant: 'destructive', title: 'Not supported', description: 'Use Chrome or Edge for voice recognition.' });
-      return;
-    }
+  const startRecognition = useCallback(() => {
+    if (battleEndedRef.current || isMutedRef.current) return;
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition; // eslint-disable-line @typescript-eslint/no-explicit-any
+    if (!SR || recognitionRef.current) return;
 
-    const recognition = new SR();
-    recognition.lang = 'en-US';
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-    recognition.continuous = false;
+    const rec = new SR();
+    rec.lang = 'en-US';
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.maxAlternatives = 1;
 
-    recognition.onstart = () => setIsListening(true);
-    recognition.onend = () => {
-      setIsListening(false);
-      recognitionRef.current = null;
+    rec.onstart = () => {
+      setIsListening(true);
+      broadcastSpeaking(true);
     };
-    recognition.onerror = (e: { error: string }) => {
-      setIsListening(false);
-      recognitionRef.current = null;
-      if (e.error !== 'aborted' && e.error !== 'no-speech') {
-        toast({ variant: 'destructive', title: 'Microphone error', description: e.error });
+
+    rec.onresult = (event: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+      const result = event.results[event.resultIndex];
+      const text   = result[0].transcript;
+
+      setMyTranscript(text);
+      broadcastTranscript(text);
+
+      if (result.isFinal) {
+        setMyTranscript('');
+        handleFinalUtterance(text);
       }
     };
-    recognition.onresult = (event: { results: { [key: number]: { [key: number]: { transcript: string } } } }) => {
-      const text = event.results[0][0].transcript;
-      setTranscript(text);
-      handleTranscript(text);
+
+    rec.onend = () => {
+      setIsListening(false);
+      recognitionRef.current = null;
+      broadcastSpeaking(false);
+      // Auto-restart unless muted or battle over
+      if (!isMutedRef.current && !battleEndedRef.current) {
+        setTimeout(() => startRecognition(), 300);
+      }
     };
 
-    recognitionRef.current = recognition;
-    recognition.start();
-  }, [isListening, handleTranscript, toast]);
+    rec.onerror = (e: { error: string }) => {
+      if (e.error === 'not-allowed') {
+        toast({ variant: 'destructive', title: 'Microphone blocked', description: 'Allow microphone access to play.' });
+        setBattleEnded(true);
+      }
+      // other errors: onend will auto-restart
+    };
 
-  const playerErrors = player?.error_count ?? 0;
+    recognitionRef.current = rec;
+    try { rec.start(); } catch { /* already started */ }
+  }, [broadcastSpeaking, broadcastTranscript, handleFinalUtterance, toast]);
+
+  // Auto-start when battle is active
+  useEffect(() => {
+    if (room?.status === 'active' && speechSupported && !isMuted) {
+      setTimeout(() => startRecognition(), 800);
+    }
+    return () => stopRecognition();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [room?.status, speechSupported]);
+
+  const toggleMute = () => {
+    const muting = !isMuted;
+    setIsMuted(muting);
+    if (muting) {
+      stopRecognition();
+    } else {
+      setTimeout(() => startRecognition(), 200);
+    }
+  };
+
+  // ── Derived values ───────────────────────────────────────────────────────────
+  const playerErrors   = player?.error_count  ?? 0;
   const opponentErrors = opponent?.error_count ?? 0;
-  const playerAccuracy = player?.accuracy ?? 100;
-  const opponentAccuracy = opponent?.accuracy ?? 100;
-  const isAtLimit = playerErrors >= errorLimit;
+  const playerAcc      = player?.accuracy      ?? 100;
+  const opponentAcc    = opponent?.accuracy    ?? 100;
+  const isAtLimit      = playerErrors >= errorLimit;
+
+  const errorPct = (errors: number) => Math.min(100, Math.round((errors / errorLimit) * 100));
 
   return (
-    <div className="fixed inset-0 bg-background overflow-auto">
-      {/* Session locked badge */}
-      <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-2">
-        {/* Grammar mode badge */}
+    <div className="fixed inset-0 bg-[#080810] flex flex-col overflow-hidden select-none">
+
+      {/* ── Top bar ───────────────────────────────────────────────────────────── */}
+      <div className="shrink-0 flex items-center justify-between px-5 pt-safe-top pt-4 pb-2 z-20">
+        {/* Timer */}
+        <div className="flex items-center gap-2 bg-white/5 rounded-full px-3 py-1.5 border border-white/10">
+          <div className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+          <span className="text-white font-mono font-bold text-sm tracking-widest">{formatTime(elapsed)}</span>
+        </div>
+
+        {/* Topic */}
+        <div className="max-w-[55%] text-center">
+          <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/40">Topic</p>
+          <p className="text-[11px] text-white/70 font-medium leading-tight line-clamp-2">{topic}</p>
+        </div>
+
+        {/* Mode badge */}
         <div className={cn(
-          'text-white px-3 py-1.5 rounded-xl shadow-lg flex items-center gap-2 text-xs font-bold uppercase tracking-widest',
+          'flex items-center gap-1.5 rounded-full px-3 py-1.5 border text-[9px] font-black uppercase tracking-widest',
           aiMode
-            ? 'bg-violet-600'
-            : 'bg-primary/90'
+            ? 'bg-violet-500/20 border-violet-500/40 text-violet-300'
+            : 'bg-primary/20 border-primary/40 text-primary'
         )}>
           {aiMode ? <Sparkles className="h-3 w-3" /> : <Zap className="h-3 w-3" />}
-          {aiMode ? 'AI Enhanced' : 'Rule-Based'}
-        </div>
-        <div className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 animate-pulse">
-          <Lock className="h-5 w-5 fill-white" />
-          <span className="font-bold text-sm uppercase tracking-widest">Session Locked</span>
+          {aiMode ? 'AI' : 'Rule'}
         </div>
       </div>
 
-      <div className="min-h-screen p-6 pt-20 pb-36">
-        <div className="max-w-4xl mx-auto space-y-5">
-          {/* Title */}
-          <div className="text-center space-y-1">
-            <h1 className="text-2xl md:text-3xl font-black tracking-tight text-foreground">
-              Battle in Progress
-            </h1>
-            <p className="text-muted-foreground font-medium">
-              First to {errorLimit} errors loses — speak in English, grammar is being checked!
-            </p>
+      {/* ── Opponent section ──────────────────────────────────────────────────── */}
+      <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6">
+
+        {/* Opponent avatar + speaking ring */}
+        <div className="relative flex items-center justify-center">
+          {/* Outer pulse rings when speaking */}
+          {opponentIsSpeaking && (
+            <>
+              <div className="absolute h-40 w-40 rounded-full border-2 border-emerald-400/30 animate-ping [animation-duration:1.4s]" />
+              <div className="absolute h-32 w-32 rounded-full border-2 border-emerald-400/50 animate-ping [animation-duration:1.8s]" />
+            </>
+          )}
+          {/* Avatar circle */}
+          <div className={cn(
+            'h-28 w-28 rounded-full flex items-center justify-center text-5xl border-4 transition-all duration-300 shadow-2xl',
+            opponentIsSpeaking
+              ? 'border-emerald-400 shadow-emerald-400/40 scale-105'
+              : 'border-white/10 bg-white/5'
+          )}>
+            {opponent?.avatar ?? '🤖'}
           </div>
-
-          {/* Error progress bar */}
-          <Card className="border-2 border-border bg-card">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-center gap-4 flex-wrap">
-                <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Your errors</span>
-                <div className="flex items-center gap-1.5">
-                  {[...Array(errorLimit)].map((_, i) => (
-                    <div
-                      key={i}
-                      className={cn(
-                        'h-3 rounded-full transition-all duration-300',
-                        errorLimit <= 10 ? 'w-6' : 'w-3',
-                        i < playerErrors ? 'bg-destructive scale-y-110' : 'bg-muted'
-                      )}
-                    />
-                  ))}
-                </div>
-                <span className={cn(
-                  'text-sm font-black',
-                  playerErrors >= errorLimit * 0.8 ? 'text-destructive' : 'text-foreground'
-                )}>
-                  {playerErrors} / {errorLimit}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Player cards */}
-          <div className="grid gap-4 md:grid-cols-2">
-            <PlayerCard
-              name={player?.username ?? 'You'}
-              errors={playerErrors}
-              errorLimit={errorLimit}
-              accuracy={playerAccuracy}
-              isSpeaking={isListening}
-              isCurrentUser={true}
-              avatar={player?.avatar ?? '👤'}
-            />
-            <PlayerCard
-              name={opponent?.username ?? 'Opponent'}
-              errors={opponentErrors}
-              errorLimit={errorLimit}
-              accuracy={opponentAccuracy}
-              isSpeaking={false}
-              isCurrentUser={false}
-              avatar={opponent?.avatar ?? '🤖'}
-            />
+          {/* Error badge */}
+          <div className="absolute -bottom-1 -right-1 bg-destructive text-white text-xs font-black px-2 py-0.5 rounded-full border-2 border-[#080810]">
+            {opponentErrors}/{errorLimit}
           </div>
+        </div>
 
-          {/* Live transcript */}
-          {(transcript || isListening) && (
-            <Card className={cn(
-              'border-2 transition-all duration-300',
-              isListening ? 'border-primary bg-primary/10' : 'border-border bg-card'
+        {/* Opponent name + accuracy */}
+        <div className="text-center space-y-1">
+          <p className="text-white font-black text-lg">{opponent?.username ?? 'Waiting…'}</p>
+          <div className="flex items-center justify-center gap-3">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">Accuracy</span>
+            <div className="w-32 h-1.5 bg-white/10 rounded-full overflow-hidden">
+              <div
+                className={cn(
+                  'h-full rounded-full transition-all duration-700',
+                  opponentAcc >= 80 ? 'bg-emerald-500' : opponentAcc >= 60 ? 'bg-yellow-500' : 'bg-destructive'
+                )}
+                style={{ width: `${opponentAcc}%` }}
+              />
+            </div>
+            <span className="text-[10px] font-black text-white/60">{opponentAcc}%</span>
+          </div>
+        </div>
+
+        {/* Opponent live transcript */}
+        <div className="w-full max-w-sm min-h-[2.5rem] flex items-center justify-center">
+          {opponentIsSpeaking && opponentTranscript ? (
+            <div className="px-4 py-2 bg-white/5 border border-white/10 rounded-2xl">
+              <p className="text-sm text-white/80 italic text-center leading-relaxed">
+                "{opponentTranscript}"
+              </p>
+            </div>
+          ) : opponentIsSpeaking ? (
+            <div className="flex items-center gap-1.5">
+              <div className="h-2 w-2 bg-emerald-400 rounded-full animate-bounce [animation-delay:0ms]" />
+              <div className="h-2 w-2 bg-emerald-400 rounded-full animate-bounce [animation-delay:120ms]" />
+              <div className="h-2 w-2 bg-emerald-400 rounded-full animate-bounce [animation-delay:240ms]" />
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      {/* ── Divider / VS ──────────────────────────────────────────────────────── */}
+      <div className="shrink-0 flex items-center gap-3 px-6 py-1">
+        <div className="flex-1 h-px bg-white/10" />
+        <div className="text-[9px] font-black uppercase tracking-[0.3em] text-white/20">vs</div>
+        <div className="flex-1 h-px bg-white/10" />
+      </div>
+
+      {/* ── My section ───────────────────────────────────────────────────────── */}
+      <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6">
+
+        {/* My transcript / correct flash */}
+        <div className="w-full max-w-sm min-h-[2.5rem] flex items-center justify-center">
+          {correctFlash ? (
+            <div className="flex items-center gap-2 px-4 py-2 bg-emerald-500/20 border border-emerald-500/40 rounded-2xl animate-in fade-in duration-200">
+              <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+              <span className="text-sm font-bold text-emerald-400">Correct!</span>
+            </div>
+          ) : isListening && myTranscript ? (
+            <div className="px-4 py-2 bg-primary/10 border border-primary/20 rounded-2xl">
+              <p className="text-sm text-white/80 italic text-center leading-relaxed">
+                "{myTranscript}"
+              </p>
+            </div>
+          ) : null}
+        </div>
+
+        {/* My avatar */}
+        <div className="relative flex items-center justify-center">
+          {isListening && !isMuted && (
+            <>
+              <div className="absolute h-28 w-28 rounded-full border-2 border-primary/30 animate-ping [animation-duration:1.5s]" />
+              <div className="absolute h-22 w-22 rounded-full border-2 border-primary/50 animate-ping [animation-duration:2s]" />
+            </>
+          )}
+          <div className={cn(
+            'h-20 w-20 rounded-full flex items-center justify-center text-4xl border-4 transition-all duration-300 shadow-xl',
+            isListening && !isMuted
+              ? 'border-primary shadow-primary/40 scale-105'
+              : isMuted
+              ? 'border-white/10 opacity-60 bg-white/5'
+              : 'border-white/10 bg-white/5'
+          )}>
+            {player?.avatar ?? '👤'}
+          </div>
+          <div className="absolute -bottom-1 -right-1 bg-destructive text-white text-xs font-black px-2 py-0.5 rounded-full border-2 border-[#080810]">
+            {playerErrors}/{errorLimit}
+          </div>
+        </div>
+
+        {/* My name + accuracy */}
+        <div className="text-center space-y-1">
+          <p className="text-white font-black text-base">{player?.username ?? 'You'}</p>
+          <div className="flex items-center justify-center gap-3">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">Accuracy</span>
+            <div className="w-28 h-1.5 bg-white/10 rounded-full overflow-hidden">
+              <div
+                className={cn(
+                  'h-full rounded-full transition-all duration-700',
+                  playerAcc >= 80 ? 'bg-emerald-500' : playerAcc >= 60 ? 'bg-yellow-500' : 'bg-destructive'
+                )}
+                style={{ width: `${playerAcc}%` }}
+              />
+            </div>
+            <span className="text-[10px] font-black text-white/60">{playerAcc}%</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Bottom controls ───────────────────────────────────────────────────── */}
+      <div className="shrink-0 pb-safe-bottom pb-8 pt-4 flex flex-col items-center gap-3">
+
+        {!speechSupported ? (
+          <p className="text-destructive text-sm font-bold text-center px-6">
+            Speech recognition not supported. Use Chrome or Edge.
+          </p>
+        ) : isAtLimit ? (
+          <p className="text-destructive text-sm font-bold uppercase tracking-widest animate-pulse text-center">
+            Error limit reached — waiting…
+          </p>
+        ) : (
+          <div className="flex items-center gap-5">
+            {/* Mute button */}
+            <button
+              onClick={toggleMute}
+              className={cn(
+                'h-14 w-14 rounded-full flex items-center justify-center border-2 transition-all duration-200',
+                isMuted
+                  ? 'bg-destructive/20 border-destructive text-destructive'
+                  : 'bg-white/5 border-white/20 text-white/60 hover:bg-white/10'
+              )}
+            >
+              {isMuted ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
+            </button>
+
+            {/* Mic status pill */}
+            <div className={cn(
+              'flex items-center gap-2.5 px-5 py-3 rounded-full border transition-all duration-300',
+              isMuted
+                ? 'bg-white/5 border-white/10'
+                : isListening
+                ? 'bg-primary/20 border-primary/50'
+                : 'bg-white/5 border-white/10'
             )}>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className={cn('w-2 h-2 rounded-full', isListening ? 'bg-primary animate-pulse' : 'bg-muted')} />
-                  <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                    {isListening ? 'Listening…' : 'Last utterance'}
-                  </span>
-                </div>
-                {transcript && (
-                  <p className="text-sm font-medium text-foreground italic">"{transcript}"</p>
-                )}
-              </CardContent>
-            </Card>
-          )}
+              <div className={cn(
+                'h-2.5 w-2.5 rounded-full',
+                isMuted ? 'bg-white/20' : isListening ? 'bg-primary animate-pulse' : 'bg-white/30'
+              )} />
+              <span className="text-sm font-bold text-white/80 uppercase tracking-widest">
+                {isMuted ? 'Muted' : isListening ? 'Live' : 'Starting…'}
+              </span>
+            </div>
 
-          {/* Grammar correction card */}
-          {correction && (
-            <Card className="border-2 border-destructive bg-destructive/10 animate-in fade-in slide-in-from-top-4 duration-300">
-              <CardContent className="p-4 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <AlertCircle className="h-4 w-4 text-destructive" />
-                    <span className="text-xs font-bold uppercase tracking-widest text-destructive">
-                      Grammar Error — +1 counted
-                    </span>
-                  </div>
-                  {correction.enhanced && (
-                    <span className="text-[9px] font-black uppercase tracking-widest text-violet-500 bg-violet-500/10 px-2 py-0.5 rounded-full flex items-center gap-1">
-                      <Sparkles className="h-2.5 w-2.5" /> AI
-                    </span>
-                  )}
-                </div>
-                <p className="text-sm text-destructive font-medium line-through">
-                  "{correction.originalText}"
-                </p>
-                <p className="text-sm text-emerald-500 font-bold">
-                  "{correction.correctedText}"
-                </p>
-                <p className="text-xs text-muted-foreground italic">
-                  {correction.explanation}
-                </p>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Battle log */}
-          {battleLog.length > 0 && (
-            <Card className="border-2 border-border bg-card">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <MessageSquare className="h-3 w-3 text-muted-foreground" />
-                  <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Battle Log</span>
-                </div>
-                <div className="space-y-1.5">
-                  {battleLog.map((entry, i) => (
-                    <p
-                      key={entry.id}
-                      className={cn(
-                        'text-sm font-medium transition-opacity',
-                        i === 0 ? 'opacity-100' : 'opacity-50',
-                        entry.isError ? 'text-destructive' : 'text-foreground'
-                      )}
-                    >
-                      {entry.text}
-                    </p>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Voice controls */}
-          <div className="flex items-center justify-center py-6">
-            <Card className="border-2 border-border bg-card shadow-2xl max-w-lg w-full">
-              <CardContent className="p-6">
-                {!speechSupported ? (
-                  <div className="text-center space-y-3">
-                    <AlertCircle className="h-8 w-8 text-destructive mx-auto" />
-                    <p className="text-sm font-bold text-destructive">Speech recognition not supported</p>
-                    <p className="text-xs text-muted-foreground">Please use Chrome or Edge.</p>
-                  </div>
-                ) : isAtLimit ? (
-                  <div className="text-center space-y-2">
-                    <p className="text-sm font-bold text-destructive uppercase tracking-widest">
-                      You've reached the error limit
-                    </p>
-                    <p className="text-xs text-muted-foreground">Waiting for battle to end…</p>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center gap-6">
-                    <div className="flex flex-col items-center gap-1">
-                      <div className={cn(
-                        'w-3 h-3 rounded-full transition-all',
-                        isListening ? 'bg-primary animate-pulse scale-125' : 'bg-muted'
-                      )} />
-                      <span className="text-xs font-bold text-muted-foreground">
-                        {isListening ? 'Listening' : 'Ready'}
-                      </span>
-                    </div>
-
-                    {isListening ? (
-                      <Button
-                        onClick={stopListening}
-                        className="h-14 px-10 rounded-2xl font-black uppercase tracking-widest bg-destructive hover:bg-destructive/90 text-white gap-2"
-                      >
-                        <MicOff className="h-5 w-5" />
-                        Stop
-                      </Button>
-                    ) : (
-                      <Button
-                        onClick={startListening}
-                        className="h-14 px-10 rounded-2xl font-black uppercase tracking-widest gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20"
-                      >
-                        <Mic className="h-6 w-6" />
-                        Speak
-                      </Button>
-                    )}
-
-                    <div className="flex flex-col items-center gap-1">
-                      <CheckCircle2 className={cn(
-                        'h-5 w-5 transition-colors',
-                        playerAccuracy >= 80 ? 'text-emerald-500' : 'text-muted-foreground'
-                      )} />
-                      <span className="text-xs font-bold text-muted-foreground">{playerAccuracy}%</span>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            {/* Placeholder for symmetry */}
+            <div className="h-14 w-14" />
           </div>
+        )}
+
+        {/* Error bar */}
+        <div className="flex items-center gap-3 w-full max-w-xs px-4">
+          <span className="text-[9px] font-black uppercase tracking-widest text-white/30 shrink-0">Errors</span>
+          <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-destructive rounded-full transition-all duration-500"
+              style={{ width: `${errorPct(playerErrors)}%` }}
+            />
+          </div>
+          <span className="text-[9px] font-black text-white/40 shrink-0">{playerErrors}/{errorLimit}</span>
         </div>
       </div>
+
+      {/* ── Error overlay ─────────────────────────────────────────────────────── */}
+      {errorOverlay && (
+        <div className="absolute inset-0 flex items-end justify-center pb-32 px-6 pointer-events-none z-30">
+          <div className="w-full max-w-md bg-[#1a0a0a] border-2 border-destructive rounded-3xl p-5 shadow-2xl shadow-destructive/30 animate-in slide-in-from-bottom-8 duration-300">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-destructive" />
+                <span className="text-xs font-black uppercase tracking-widest text-destructive">Grammar Error · +1</span>
+              </div>
+              {errorOverlay.enhanced && (
+                <span className="text-[8px] font-black uppercase tracking-widest text-violet-400 bg-violet-500/15 px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <Sparkles className="h-2.5 w-2.5" /> AI
+                </span>
+              )}
+            </div>
+            <p className="text-sm text-red-400 line-through mb-1 leading-relaxed">"{errorOverlay.originalText}"</p>
+            <p className="text-sm text-emerald-400 font-bold mb-2 leading-relaxed">"{errorOverlay.correctedText}"</p>
+            <p className="text-xs text-white/50 italic leading-relaxed">{errorOverlay.explanation}</p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Correct flash overlay (full-screen brief) ──────────────────────────── */}
+      {correctFlash && (
+        <div className="absolute inset-0 bg-emerald-500/5 pointer-events-none z-20 animate-in fade-in duration-100" />
+      )}
+
+      {/* ── Red flash on error ─────────────────────────────────────────────────── */}
+      {errorOverlay && (
+        <div className="absolute inset-0 bg-destructive/8 pointer-events-none z-20" />
+      )}
     </div>
   );
 }

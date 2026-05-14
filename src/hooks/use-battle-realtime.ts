@@ -18,21 +18,19 @@ export interface BattleRoomState {
   error_limit: number
 }
 
-interface BroadcastErrorPayload {
-  user_id: string
-  error_count: number
-  accuracy: number
-}
-
-interface BroadcastEndPayload {
-  winner_id: string | null
-}
+interface BroadcastErrorPayload   { user_id: string; error_count: number; accuracy: number }
+interface BroadcastEndPayload     { winner_id: string | null }
+interface BroadcastSpeakPayload   { user_id: string; isSpeaking: boolean }
+interface BroadcastTranscriptPayload { user_id: string; text: string }
 
 export function useBattleRealtime(roomId: string | null) {
   const [participants, setParticipants] = useState<BattleParticipant[]>([])
-  const [room, setRoom] = useState<BattleRoomState | null>(null)
+  const [room, setRoom]                 = useState<BattleRoomState | null>(null)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [opponentIsSpeaking, setOpponentIsSpeaking] = useState(false)
+  const [opponentTranscript, setOpponentTranscript] = useState('')
   const channelRef = useRef<RealtimeChannel | null>(null)
+  const userIdRef  = useRef<string | null>(null)
 
   useEffect(() => {
     if (!roomId) return
@@ -40,9 +38,11 @@ export function useBattleRealtime(roomId: string | null) {
 
     const load = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      if (user) setCurrentUserId(user.id)
+      if (user) {
+        setCurrentUserId(user.id)
+        userIdRef.current = user.id
+      }
 
-      // Initial DB fetch for room + participants (no publication needed — just a SELECT)
       const [{ data: roomData }, { data: rawParticipants }] = await Promise.all([
         supabase.from('battle_rooms').select('*').eq('id', roomId).single(),
         supabase
@@ -61,29 +61,31 @@ export function useBattleRealtime(roomId: string | null) {
 
     load()
 
-    // Broadcast channel — free on all Supabase plans, no publication/replica needed
     channelRef.current = supabase
       .channel(`battle:${roomId}`)
-      .on<BroadcastErrorPayload>(
-        'broadcast',
-        { event: 'error_update' },
-        ({ payload }) => {
-          setParticipants(prev =>
-            prev.map(p =>
-              p.user_id === payload.user_id
-                ? { ...p, error_count: payload.error_count, accuracy: payload.accuracy }
-                : p
-            )
+      .on<BroadcastErrorPayload>('broadcast', { event: 'error_update' }, ({ payload }) => {
+        setParticipants(prev =>
+          prev.map(p =>
+            p.user_id === payload.user_id
+              ? { ...p, error_count: payload.error_count, accuracy: payload.accuracy }
+              : p
           )
+        )
+      })
+      .on<BroadcastEndPayload>('broadcast', { event: 'battle_end' }, ({ payload }) => {
+        setRoom(prev => prev ? { ...prev, status: 'completed', winner_id: payload.winner_id } : null)
+      })
+      .on<BroadcastSpeakPayload>('broadcast', { event: 'speaking_state' }, ({ payload }) => {
+        if (payload.user_id !== userIdRef.current) {
+          setOpponentIsSpeaking(payload.isSpeaking)
+          if (!payload.isSpeaking) setOpponentTranscript('')
         }
-      )
-      .on<BroadcastEndPayload>(
-        'broadcast',
-        { event: 'battle_end' },
-        ({ payload }) => {
-          setRoom(prev => prev ? { ...prev, status: 'completed', winner_id: payload.winner_id } : null)
+      })
+      .on<BroadcastTranscriptPayload>('broadcast', { event: 'live_transcript' }, ({ payload }) => {
+        if (payload.user_id !== userIdRef.current) {
+          setOpponentTranscript(payload.text)
         }
-      )
+      })
       .subscribe()
 
     return () => {
@@ -99,19 +101,41 @@ export function useBattleRealtime(roomId: string | null) {
     await fetch(`/api/battle/${roomId}/error`, { method: 'POST' })
   }, [roomId])
 
-  const player = participants.find(p => p.user_id === currentUserId) ?? null
+  const broadcastSpeaking = useCallback((isSpeaking: boolean) => {
+    if (!channelRef.current || !userIdRef.current) return
+    channelRef.current.send({
+      type: 'broadcast',
+      event: 'speaking_state',
+      payload: { user_id: userIdRef.current, isSpeaking },
+    })
+  }, [])
+
+  const broadcastTranscript = useCallback((text: string) => {
+    if (!channelRef.current || !userIdRef.current) return
+    channelRef.current.send({
+      type: 'broadcast',
+      event: 'live_transcript',
+      payload: { user_id: userIdRef.current, text },
+    })
+  }, [])
+
+  const player   = participants.find(p => p.user_id === currentUserId) ?? null
   const opponent = participants.find(p => p.user_id !== currentUserId) ?? null
 
-  return { room, player, opponent, currentUserId, reportError }
+  return {
+    room, player, opponent, currentUserId,
+    opponentIsSpeaking, opponentTranscript,
+    reportError, broadcastSpeaking, broadcastTranscript,
+  }
 }
 
 function normalizeParticipant(raw: Record<string, unknown>): BattleParticipant {
   const profile = raw.profiles as { username?: string; avatar?: string } | null
   return {
-    user_id: raw.user_id as string,
-    username: profile?.username ?? 'Player',
-    avatar: profile?.avatar ?? '👤',
+    user_id:     raw.user_id as string,
+    username:    profile?.username ?? 'Player',
+    avatar:      profile?.avatar   ?? '👤',
     error_count: (raw.error_count as number) ?? 0,
-    accuracy: (raw.accuracy as number) ?? 100,
+    accuracy:    (raw.accuracy    as number) ?? 100,
   }
 }

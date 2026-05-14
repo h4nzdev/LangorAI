@@ -291,20 +291,32 @@ function PracticeSessionContent() {
     if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
     if (recognitionRef.current) recognitionRef.current.stop();
 
-    const sessions = parseInt(localStorage.getItem('SESSIONS_COUNT') || '0');
-    localStorage.setItem('SESSIONS_COUNT', (sessions + 1).toString());
     const mins = Math.max(1, Math.floor((Date.now() - startTime) / 60000));
-    localStorage.setItem('TOTAL_MINUTES', (parseInt(localStorage.getItem('TOTAL_MINUTES') || '0') + mins).toString());
-
     const savedApiKey = localStorage.getItem('GEMINI_API_KEY') || undefined;
+
     try {
       const analysis = await summarizeSession({ history: historyRef.current, apiKey: savedApiKey });
       localStorage.setItem('LAST_SESSION_ANALYSIS', JSON.stringify(analysis));
+
+      // Save session to Supabase (fire-and-forget — don't block navigation)
+      fetch('/api/practice/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          topic: topicParam,
+          durationMinutes: mins,
+          grammarScore:    analysis.metrics.grammar     ?? 0,
+          fluencyScore:    analysis.metrics.fluency     ?? 0,
+          confidenceScore: analysis.metrics.pronunciation ?? 0,
+          errorCount:      chatMessages.filter(m => m.role === 'user' && m.correction?.hasCorrection).length,
+        }),
+      }).catch(() => null);
+
       router.push('/practice/analysis');
     } catch {
       router.push('/dashboard');
     }
-  }, [router, startTime]);
+  }, [router, startTime, topicParam, chatMessages]);
 
   const isMicDisabled = isThinking || isEnding || isSpeaking;
 
