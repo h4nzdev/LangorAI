@@ -6,7 +6,9 @@
       "Bash(npx tsc *)",
       "Bash(Get-ChildItem -Recurse -Filter \"*.sql\" -ErrorAction SilentlyContinue)",
       "Bash(Select-Object FullName)",
-      "Bash(grep -i \"\\\\.\\(ts|tsx\\)$\")"
+      "Bash(grep -i \"\\\\.\\(ts|tsx\\)$\")",
+      "Bash(Select-String \"env\")",
+      "Bash(dir \"C:\\\\Users\\\\hanzc\\\\Documents\\\\LangorAI\" /b)"
     ]
   }
 }

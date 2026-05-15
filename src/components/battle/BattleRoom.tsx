@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Mic, MicOff, Sparkles, Zap, AlertCircle, CheckCircle2, Lock, SendHorizonal, WifiOff, Timer } from 'lucide-react';
+import { Mic, MicOff, Sparkles, Zap, AlertCircle, CheckCircle2, Lock, SendHorizonal, WifiOff, Timer, Flag } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useBattleRealtime } from '@/hooks/use-battle-realtime';
 import { useToast } from '@/hooks/use-toast';
@@ -69,6 +69,11 @@ export function BattleRoom({ roomId, errorLimit, learningGoal, onBattleEnd }: Ba
   const [tooShortWarning, setTooShortWarning]   = useState(false);
   const [timeExpiredFlash, setTimeExpiredFlash] = useState(false);
   const [turnTimeLeft, setTurnTimeLeft]         = useState<number | null>(null);
+  const [surrenderConfirm, setSurrenderConfirm] = useState(false);
+  const [isSurrendering, setIsSurrendering]     = useState(false);
+  // 'own' = user has personal Groq key | 'free' = using built-in free trial | 'none' = no AI
+  const [aiTier, setAiTier] = useState<'own' | 'free' | 'none'>('none');
+  const isFreeSessionRef    = useRef(false);
 
   const recognitionRef       = useRef<any>(null); // eslint-disable-line @typescript-eslint/no-explicit-any
   const isMutedRef           = useRef(false);
@@ -110,7 +115,22 @@ export function BattleRoom({ roomId, errorLimit, learningGoal, onBattleEnd }: Ba
     if (typeof window === 'undefined') return;
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition; // eslint-disable-line @typescript-eslint/no-explicit-any
     if (!SR) setSpeechSupported(false);
-    setAiMode(!!localStorage.getItem('GEMINI_API_KEY'));
+
+    const hasOwnKey      = !!localStorage.getItem('GROQ_API_KEY');
+    const freeSessionVal = localStorage.getItem('GROQ_FREE_SESSION_USED');
+
+    if (hasOwnKey) {
+      setAiTier('own');
+      setAiMode(true);
+    } else if (freeSessionVal !== 'used') {
+      setAiTier('free');
+      setAiMode(true);
+      isFreeSessionRef.current = true;
+      localStorage.setItem('GROQ_FREE_SESSION_USED', 'active');
+    } else {
+      setAiTier('none');
+      setAiMode(false);
+    }
   }, []);
 
   // Derived turn state
@@ -164,6 +184,13 @@ export function BattleRoom({ roomId, errorLimit, learningGoal, onBattleEnd }: Ba
     if (room?.status !== 'completed' || battleEnded) return;
     setBattleEnded(true);
     stopRecognition();
+
+    // Consume the free trial slot when the battle finishes
+    if (isFreeSessionRef.current) {
+      localStorage.setItem('GROQ_FREE_SESSION_USED', 'used');
+      isFreeSessionRef.current = false;
+    }
+
     const playerErrors   = player?.error_count  ?? 0;
     const opponentErrors = opponent?.error_count ?? 0;
     const playerWon = room.winner_id === currentUserId;
@@ -321,12 +348,13 @@ export function BattleRoom({ roomId, errorLimit, learningGoal, onBattleEnd }: Ba
       void reportError();
       setTimeout(() => setErrorOverlay(null), 4000);
 
-      // Optional AI enhancement (fully non-blocking, decorative only)
-      const apiKey = localStorage.getItem('GEMINI_API_KEY') || undefined;
-      if (apiKey) {
+      // Optional Groq AI enhancement (fully non-blocking, decorative only)
+      const groqKey   = localStorage.getItem('GROQ_API_KEY') || undefined;
+      const freeTrial = !groqKey && isFreeSessionRef.current;
+      if (groqKey || freeTrial) {
         fetch('/api/battle/grammar', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ transcript: processed, apiKey }),
+          body: JSON.stringify({ transcript: processed, apiKey: groqKey, freeSession: freeTrial }),
         })
           .then(r => r.ok ? r.json() : null)
           .then((d: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -344,15 +372,16 @@ export function BattleRoom({ roomId, errorLimit, learningGoal, onBattleEnd }: Ba
       return;
     }
 
-    // No local error — show correct flash, optionally run AI check
+    // No local error — show correct flash, optionally run Groq AI check
     setCorrectFlash(true);
     setTimeout(() => setCorrectFlash(false), 900);
 
-    const apiKey = localStorage.getItem('GEMINI_API_KEY') || undefined;
-    if (apiKey) {
+    const groqKey   = localStorage.getItem('GROQ_API_KEY') || undefined;
+    const freeTrial = !groqKey && isFreeSessionRef.current;
+    if (groqKey || freeTrial) {
       fetch('/api/battle/grammar', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcript: processed, apiKey }),
+        body: JSON.stringify({ transcript: processed, apiKey: groqKey, freeSession: freeTrial }),
       })
         .then(r => r.ok ? r.json() : null)
         .then(async (d: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -415,6 +444,18 @@ export function BattleRoom({ roomId, errorLimit, learningGoal, onBattleEnd }: Ba
     handleFinalRef.current(text);
   }, [broadcastSpeaking]);
 
+  const handleSurrender = useCallback(async () => {
+    if (battleEndedRef.current || isSurrendering) return;
+    setIsSurrendering(true);
+    stopRecognition();
+    try {
+      await fetch(`/api/battle/${roomId}/surrender`, { method: 'POST' });
+    } finally {
+      setIsSurrendering(false);
+      setSurrenderConfirm(false);
+    }
+  }, [roomId, isSurrendering, stopRecognition]);
+
   // ── Derived ──────────────────────────────────────────────────────────────────
   const playerErrors   = player?.error_count  ?? 0;
   const opponentErrors = opponent?.error_count ?? 0;
@@ -442,10 +483,12 @@ export function BattleRoom({ roomId, errorLimit, learningGoal, onBattleEnd }: Ba
 
         <div className={cn(
           'flex items-center gap-1.5 rounded-full px-3 py-1.5 border text-[9px] font-black uppercase tracking-widest',
-          aiMode ? 'bg-violet-500/20 border-violet-500/40 text-violet-300' : 'bg-primary/20 border-primary/40 text-primary'
+          aiTier === 'own'  ? 'bg-violet-500/20 border-violet-500/40 text-violet-300' :
+          aiTier === 'free' ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300' :
+                              'bg-primary/20 border-primary/40 text-primary'
         )}>
-          {aiMode ? <Sparkles className="h-3 w-3" /> : <Zap className="h-3 w-3" />}
-          {aiMode ? 'AI' : 'Rule'}
+          {aiTier !== 'none' ? <Sparkles className="h-3 w-3" /> : <Zap className="h-3 w-3" />}
+          {aiTier === 'own' ? 'Groq AI' : aiTier === 'free' ? 'AI Trial' : 'Rule'}
         </div>
       </div>
 
@@ -667,6 +710,36 @@ export function BattleRoom({ roomId, errorLimit, learningGoal, onBattleEnd }: Ba
           </div>
           <span className="text-[9px] font-black text-white/40 shrink-0">{playerErrors}/{errorLimit}</span>
         </div>
+
+        {/* Surrender */}
+        {!battleEnded && (
+          surrenderConfirm ? (
+            <div className="flex items-center gap-3 animate-in fade-in duration-150">
+              <span className="text-[10px] font-bold text-white/50 uppercase tracking-widest">Surrender?</span>
+              <button
+                onClick={handleSurrender}
+                disabled={isSurrendering}
+                className="px-3 py-1 rounded-lg bg-destructive/20 border border-destructive/50 text-destructive text-[10px] font-black uppercase tracking-widest hover:bg-destructive/30 transition-colors disabled:opacity-50"
+              >
+                {isSurrendering ? '…' : 'Yes, Quit'}
+              </button>
+              <button
+                onClick={() => setSurrenderConfirm(false)}
+                className="px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-white/40 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setSurrenderConfirm(true)}
+              className="flex items-center gap-1.5 text-white/20 hover:text-white/40 transition-colors text-[9px] font-bold uppercase tracking-widest"
+            >
+              <Flag className="h-3 w-3" />
+              Surrender
+            </button>
+          )
+        )}
       </div>
 
       {/* ── Error overlay ─────────────────────────────────────────────────────────── */}

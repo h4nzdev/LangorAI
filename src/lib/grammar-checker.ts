@@ -2427,6 +2427,83 @@ const RULES: Rule[] = [
     apply: (t) => t.replace(/\bfirstly\b/gi, "first"),
     reason: '"First" is preferred over "firstly" in modern English.',
   },
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // UNCOUNTABLE NOUNS WITH ARTICLE
+  // ════════════════════════════════════════════════════════════════════════════
+  {
+    id: "article-grammar-uncountable",
+    test: /\b(a|an)\s+(\w+\s+)?grammar\b/i,
+    apply: (t) =>
+      t.replace(
+        /\b(a|an)\s+((\w+)\s+)?grammar\b/gi,
+        (_, _art, adjPhrase, adj) => (adj ? `${adj} grammar` : "grammar"),
+      ),
+    reason:
+      '"Grammar" as an abstract concept is uncountable — no article needed. Say "correct grammar", not "a correct grammar".',
+  },
+  {
+    id: "article-advice-uncountable",
+    test: /\b(a|an)\s+advice\b/i,
+    apply: (t) => t.replace(/\b(a|an)\s+advice\b/gi, "advice"),
+    reason:
+      '"Advice" is uncountable — no article. Say "advice" or "a piece of advice".',
+  },
+  {
+    id: "article-homework-uncountable",
+    test: /\b(a|an)\s+homework\b/i,
+    apply: (t) => t.replace(/\b(a|an)\s+homework\b/gi, "homework"),
+    reason:
+      '"Homework" is uncountable — no article. Say "homework" or "an assignment".',
+  },
+  {
+    id: "article-feedback-uncountable",
+    test: /\b(a|an)\s+feedback\b/i,
+    apply: (t) => t.replace(/\b(a|an)\s+feedback\b/gi, "feedback"),
+    reason:
+      '"Feedback" is uncountable — no article. Say "feedback" or "a piece of feedback".',
+  },
+  {
+    id: "article-knowledge-uncountable",
+    test: /\b(a|an)\s+knowledge\b/i,
+    apply: (t) => t.replace(/\b(a|an)\s+knowledge\b/gi, "knowledge"),
+    reason: '"Knowledge" is uncountable — no article needed.',
+  },
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // MAKE + OBJECT + VERB-ING (should be base verb)
+  // ════════════════════════════════════════════════════════════════════════════
+  {
+    id: "make-object-verb-ing",
+    test: /\bmake\s+(it|them|this|that|him|her|the\s+\w+(?:\s+\w+)?)\s+(working|running|going|happening|moving|starting|stopping|functioning|operating|loading|showing|playing|recording|streaming|connecting|responding|working|rendering|displaying|clicking|typing|scrolling)\b/i,
+    apply: (t) =>
+      t.replace(
+        /\bmake\s+((it|them|this|that|him|her|the\s+\w+(?:\s+\w+)?))\s+(working|running|going|happening|moving|starting|stopping|functioning|operating|loading|showing|playing|recording|streaming|connecting|responding|working|rendering|displaying|clicking|typing|scrolling)\b/gi,
+        (_, obj, _g2, gerund) => {
+          const base = gerund
+            .replace(/ing$/, "")
+            .replace(/nn$/, "n")
+            .replace(/pp$/, "p")
+            .replace(/tt$/, "t")
+            .replace(/rr$/, "r");
+          return `make ${obj} ${base}`;
+        },
+      ),
+    reason:
+      'After "make + object", use the base verb: "make it work", not "make it working".',
+  },
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // I AM AGREE / DISAGREE
+  // ════════════════════════════════════════════════════════════════════════════
+  {
+    id: "am-agree-disagree",
+    test: /\bI\s+am\s+(agree|disagree)\b/i,
+    apply: (t) =>
+      t.replace(/\bI\s+am\s+(agree|disagree)\b/gi, (_, v) => `I ${v}`),
+    reason:
+      'Say "I agree" / "I disagree", not "I am agree" / "I am disagree".',
+  },
 ];
 
 export function checkGrammar(text: string): GrammarResult {

@@ -59,19 +59,30 @@ export function useMatchmaking(
       pollRef.current = setInterval(async () => {
         if (matchFoundRef.current) return
 
-        const { data: participant } = await supabase
+        // Only match rooms that are currently active (guards against stale rooms from
+        // a previous session the user left without properly ending)
+        const { data: participants } = await supabase
           .from('battle_participants')
           .select('room_id')
           .eq('user_id', user.id)
           .order('joined_at', { ascending: false })
-          .limit(1)
-          .maybeSingle()
+          .limit(5)
 
-        if (participant?.room_id) {
-          matchFoundRef.current = true
-          setStatus('Match found!')
-          cleanup()
-          onMatchFound(participant.room_id)
+        for (const row of participants ?? []) {
+          const { data: room } = await supabase
+            .from('battle_rooms')
+            .select('status')
+            .eq('id', row.room_id)
+            .eq('status', 'active')
+            .maybeSingle()
+
+          if (room) {
+            matchFoundRef.current = true
+            setStatus('Match found!')
+            cleanup()
+            onMatchFound(row.room_id as string)
+            return
+          }
         }
       }, 2000)
     }
