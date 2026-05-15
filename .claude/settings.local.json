@@ -3,7 +3,10 @@
     "allow": [
       "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\hanzc\\\\Documents\\\\LangorAI\" -Recurse -Force | Select-Object -Property FullName, @{Name=\"Type\";Expression={if\\($_.PSIsContainer\\){\"DIR\"}else{\"FILE\"}}} | Sort-Object FullName | Format-Table -AutoSize)",
       "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\hanzc\\\\Documents\\\\LangorAI\" | Select-Object Name, @{Name=\"Type\";Expression={if\\($_.PSIsContainer\\){\"DIR\"}else{\"FILE\"}}})",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(Get-ChildItem -Recurse -Filter \"*.sql\" -ErrorAction SilentlyContinue)",
+      "Bash(Select-Object FullName)",
+      "Bash(grep -i \"\\\\.\\(ts|tsx\\)$\")"
     ]
   }
 }

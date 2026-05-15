@@ -36,6 +36,8 @@ import { cn } from '@/lib/utils';
 import { Navigation } from '@/components/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { AnalyticsSection } from '@/components/dashboard/AnalyticsSection';
+import { LevelProgressCard } from '@/components/dashboard/LevelProgressCard';
+import { calculateProgression, type ProgressionResult } from '@/lib/recommendations';
 
 interface Activity {
   id: string;
@@ -98,6 +100,8 @@ export default function Dashboard() {
   const [recommendations, setRecommendations] = useState<Activity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState({ streak: 0, sessions: 0, confidence: 0 });
+  const [progression, setProgression] = useState<ProgressionResult | null>(null);
+  const [winsLosses, setWinsLosses] = useState({ wins: 0, losses: 0 });
 
   // Dialog state
   const [setupStep, setSetupStep] = useState(1);
@@ -134,11 +138,24 @@ export default function Dashboard() {
           setUserLevel(level);
 
           const sessions = profile.total_sessions ?? 0;
+          const wins    = profile.wins    ?? 0;
+          const losses  = profile.losses  ?? 0;
           setStats({
             streak: profile.streak ?? 0,
             sessions,
             confidence: Math.min(sessions * 5, 100),
           });
+          setWinsLosses({ wins, losses });
+
+          // Fetch recent battle errors for the progression algorithm
+          const { data: recentParticipants } = await supabase
+            .from('battle_participants')
+            .select('error_count')
+            .eq('user_id', user.id)
+            .order('joined_at', { ascending: false })
+            .limit(10);
+          const recentErrors = (recentParticipants ?? []).map(r => r.error_count ?? 0);
+          setProgression(calculateProgression(level, wins, losses, recentErrors));
 
           // Keep localStorage in sync
           localStorage.setItem('USER_NAME', profile.username);
@@ -293,6 +310,15 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Level Progression */}
+            {progression && (
+              <LevelProgressCard
+                currentLevel={userLevel}
+                learningGoal={userGoal}
+                result={progression}
+              />
+            )}
 
             {/* Start Session Dialog */}
             <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) setSetupStep(1); }}>

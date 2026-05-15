@@ -65,10 +65,11 @@ interface BattleMenuProps {
   onStart: (errorLimit: number, mode: string) => void;
   stats?: BattleStats;
   battleHistory?: BattleHistoryItem[];
+  recommendedMode?: 'easy' | 'standard' | 'hard';
 }
 
-export function BattleMenu({ onStart, stats, battleHistory }: BattleMenuProps) {
-  const [selectedMode, setSelectedMode] = useState<string>('standard');
+export function BattleMenu({ onStart, stats, battleHistory, recommendedMode }: BattleMenuProps) {
+  const [selectedMode, setSelectedMode] = useState<string>(recommendedMode ?? 'standard');
 
   const handleStart = () => {
     const mode = BATTLE_MODES.find(m => m.value === selectedMode);
@@ -141,11 +142,16 @@ export function BattleMenu({ onStart, stats, battleHistory }: BattleMenuProps) {
                   >
                     <div className={cn('p-2 rounded-xl', mode.color)}>{mode.icon}</div>
                     <div className="flex-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-base font-black text-foreground">{mode.label}</span>
                         <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
                           ({mode.errors} Errors)
                         </span>
+                        {recommendedMode === mode.value && (
+                          <span className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-primary/20 text-primary border border-primary/30">
+                            For You
+                          </span>
+                        )}
                       </div>
                       <p className="text-sm text-muted-foreground font-medium">{mode.description}</p>
                     </div>

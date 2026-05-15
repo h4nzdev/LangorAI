@@ -7,6 +7,7 @@ import { Navigation } from '@/components/navigation';
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
+import { recommendedBattleMode } from '@/lib/recommendations';
 
 type BattleStatus = 'menu' | 'matchmaking' | 'battle' | 'result';
 
@@ -43,6 +44,8 @@ export default function BattlePage() {
     streak: 0,
   });
   const [battleHistory, setBattleHistory] = useState<BattleHistoryItem[]>([]);
+  const [learningGoal, setLearningGoal] = useState<string>('');
+  const [proficiencyLevel, setProficiencyLevel] = useState<string>('Intermediate');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenError, setFullscreenError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -56,7 +59,7 @@ export default function BattlePage() {
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('wins, losses, draws, points, streak')
+      .select('wins, losses, draws, points, streak, learning_goal, proficiency_level')
       .eq('id', user.id)
       .single();
 
@@ -72,6 +75,8 @@ export default function BattlePage() {
         totalBattles: wins + losses + draws,
         streak: profile.streak ?? 0,
       });
+      if (profile.learning_goal)    setLearningGoal(profile.learning_goal);
+      if (profile.proficiency_level) setProficiencyLevel(profile.proficiency_level);
     }
 
     // Fetch recent battle history
@@ -265,6 +270,7 @@ export default function BattlePage() {
                 : 0,
             }}
             battleHistory={battleHistory}
+            recommendedMode={recommendedBattleMode(proficiencyLevel).mode}
           />
         )}
 
@@ -280,6 +286,7 @@ export default function BattlePage() {
           <BattleRoom
             roomId={roomId}
             errorLimit={errorLimit}
+            learningGoal={learningGoal}
             onBattleEnd={handleBattleEnd}
           />
         )}

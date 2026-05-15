@@ -2,11 +2,12 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Mic, MicOff, Sparkles, Zap, AlertCircle, CheckCircle2, Lock, SendHorizonal, WifiOff } from 'lucide-react';
+import { Mic, MicOff, Sparkles, Zap, AlertCircle, CheckCircle2, Lock, SendHorizonal, WifiOff, Timer } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useBattleRealtime } from '@/hooks/use-battle-realtime';
 import { useToast } from '@/hooks/use-toast';
 import { checkGrammar, preprocessVoiceText } from '@/lib/grammar-checker';
+import { pickTopicForGoal } from '@/lib/recommendations';
 
 // ── Debate motions ────────────────────────────────────────────────────────────
 const DEBATE_MOTIONS = [
@@ -27,17 +28,14 @@ const DEBATE_MOTIONS = [
   'Social skills are more important than academic skills',
 ];
 
-const MIN_WORDS = 8;
-
-function pickMotion(roomId: string) {
-  const hash = roomId.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-  return DEBATE_MOTIONS[hash % DEBATE_MOTIONS.length];
-}
+const MIN_WORDS        = 8;
+const TURN_TIMEOUT_SEC = 10;
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface BattleRoomProps {
   roomId: string;
   errorLimit: number;
+  learningGoal?: string; // from user profile — weights debate topic selection
   onBattleEnd: (result: {
     playerErrors: number; opponentErrors: number; playerAccuracy: number;
     fluencyScore: number; pointsEarned: number; winner: 'player' | 'opponent' | 'draw';
@@ -49,7 +47,7 @@ interface ErrorOverlay {
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
-export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps) {
+export function BattleRoom({ roomId, errorLimit, learningGoal, onBattleEnd }: BattleRoomProps) {
   const {
     room, player, opponent, currentUserId, currentSpeakerId,
     opponentIsSpeaking, opponentTranscript, connectionStatus,
@@ -66,9 +64,11 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
   const [speechSupported, setSpeechSupported] = useState(true);
   const [aiMode, setAiMode]             = useState(false);
   const [elapsed, setElapsed]           = useState(0);
-  const [motion]                        = useState(() => pickMotion(roomId));
+  const [motion]                        = useState(() => pickTopicForGoal(roomId, learningGoal ?? 'General', DEBATE_MOTIONS));
   const [isSwitchingTurn, setIsSwitchingTurn]   = useState(false);
   const [tooShortWarning, setTooShortWarning]   = useState(false);
+  const [timeExpiredFlash, setTimeExpiredFlash] = useState(false);
+  const [turnTimeLeft, setTurnTimeLeft]         = useState<number | null>(null);
 
   const recognitionRef       = useRef<any>(null); // eslint-disable-line @typescript-eslint/no-explicit-any
   const isMutedRef           = useRef(false);
@@ -84,6 +84,10 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
   const finalizedRef         = useRef(false);
   // Set to true by stopRecognition so onend doesn't fight against an intentional abort
   const abortedRef           = useRef(false);
+  // Tracks if the player has spoken at all this turn (prevents timer restarting on pause)
+  const hasSpokenThisTurnRef = useRef(false);
+  const turnTimerRef         = useRef<ReturnType<typeof setInterval> | null>(null);
+  const handleTimeExpiredRef = useRef<() => void>(() => {});
 
   useEffect(() => { isMutedRef.current     = isMuted;    }, [isMuted]);
   useEffect(() => { battleEndedRef.current = battleEnded; }, [battleEnded]);
@@ -114,6 +118,46 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
   const isOpponentTurn = currentSpeakerId !== null && currentSpeakerId !== currentUserId;
 
   useEffect(() => { isMyTurnRef.current = isMyTurn; }, [isMyTurn]);
+
+  // Reset "has spoken" flag every time a new turn starts for me
+  useEffect(() => {
+    if (isMyTurn) hasSpokenThisTurnRef.current = false;
+  }, [isMyTurn]);
+
+  // Track when the player first starts speaking this turn
+  useEffect(() => {
+    if (isListening) hasSpokenThisTurnRef.current = true;
+  }, [isListening]);
+
+  // ── 10-second response timer ─────────────────────────────────────────────────
+  useEffect(() => {
+    const clear = () => {
+      if (turnTimerRef.current) { clearInterval(turnTimerRef.current); turnTimerRef.current = null; }
+      setTurnTimeLeft(null);
+    };
+
+    // Only run when it's my turn, battle is live, and I haven't spoken yet
+    if (!isMyTurn || room?.status !== 'active' || battleEnded || isSwitchingTurn ||
+        isListening || hasSpokenThisTurnRef.current) {
+      clear();
+      return;
+    }
+
+    let remaining = TURN_TIMEOUT_SEC;
+    setTurnTimeLeft(remaining);
+
+    turnTimerRef.current = setInterval(() => {
+      remaining -= 1;
+      setTurnTimeLeft(remaining);
+      if (remaining <= 0) {
+        clear();
+        handleTimeExpiredRef.current();
+      }
+    }, 1000);
+
+    return clear;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMyTurn, room?.status, battleEnded, isSwitchingTurn, isListening]);
 
   // ── Battle end ───────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -227,6 +271,18 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
       setIsSwitchingTurn(false);
     }, 1200); // Long enough to read "Switching…" without feeling rushed
   }, [broadcastTurnChange]);
+
+  // ── Time-expired penalty ─────────────────────────────────────────────────────
+  const handleTimeExpired = useCallback(() => {
+    if (battleEndedRef.current || !isMyTurnRef.current) return;
+    stopRecognition();
+    setTimeExpiredFlash(true);
+    setTimeout(() => setTimeExpiredFlash(false), 2200);
+    void reportError();
+    switchTurn();
+  }, [stopRecognition, reportError, switchTurn]);
+
+  useEffect(() => { handleTimeExpiredRef.current = handleTimeExpired; }, [handleTimeExpired]);
 
   // ── Grammar check & turn hand-off ────────────────────────────────────────────
   // IMPORTANT: turn switches FIRST, grammar check runs in background after.
@@ -412,10 +468,14 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
       </div>
 
       {/* ── Turn banner ─────────────────────────────────────────────────────────── */}
-      <div className="shrink-0 flex items-center justify-center py-1.5">
+      <div className="shrink-0 flex flex-col items-center gap-1 py-1.5">
         {tooShortWarning ? (
           <div className="px-5 py-2 rounded-full border bg-yellow-500/20 border-yellow-500/50 text-yellow-400 font-black text-sm uppercase tracking-[0.15em] animate-pulse">
             ⚠️ Too short — say at least {MIN_WORDS} words!
+          </div>
+        ) : timeExpiredFlash ? (
+          <div className="px-5 py-2 rounded-full border bg-destructive/20 border-destructive/60 text-destructive font-black text-sm uppercase tracking-[0.15em] animate-pulse">
+            ⏱ Time&apos;s Up — +1 Error
           </div>
         ) : (
           <div className={cn(
@@ -427,6 +487,18 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
               : 'bg-white/5 border-white/10 text-white/50'
           )}>
             {isMyTurn ? '🎤 Your Turn — Speak Now' : isSwitchingTurn ? 'Switching…' : `🔇 ${opponent?.username ?? 'Opponent'}\'s Turn`}
+          </div>
+        )}
+
+        {/* Countdown — only shown when my turn and haven't spoken yet */}
+        {isMyTurn && turnTimeLeft !== null && !isListening && !timeExpiredFlash && !tooShortWarning && (
+          <div className={cn(
+            'flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest transition-colors',
+            turnTimeLeft <= 3 ? 'text-destructive animate-pulse' :
+            turnTimeLeft <= 6 ? 'text-yellow-500' : 'text-white/30'
+          )}>
+            <Timer className="h-3 w-3" />
+            Speak within {turnTimeLeft}s
           </div>
         )}
       </div>
