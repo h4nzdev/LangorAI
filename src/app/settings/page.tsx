@@ -23,7 +23,6 @@ import { cn } from '@/lib/utils';
 import { Navigation } from '@/components/navigation';
 
 export default function SettingsPage() {
-  const [groqKey, setGroqKey]             = useState('');
   const [geminiKey, setGeminiKey]         = useState('');
   const [elevenlabsKey, setElevenlabsKey] = useState('');
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -31,9 +30,6 @@ export default function SettingsPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    const savedGroq = localStorage.getItem('GROQ_API_KEY');
-    if (savedGroq) setGroqKey(savedGroq);
-
     const savedKey = localStorage.getItem('GEMINI_API_KEY');
     if (savedKey) setGeminiKey(savedKey);
 
@@ -57,11 +53,6 @@ export default function SettingsPage() {
   };
 
   const handleSave = () => {
-    if (groqKey.trim()) {
-      localStorage.setItem('GROQ_API_KEY', groqKey.trim());
-    } else {
-      localStorage.removeItem('GROQ_API_KEY');
-    }
     if (geminiKey.trim()) {
       localStorage.setItem('GEMINI_API_KEY', geminiKey.trim());
     } else {
@@ -144,47 +135,17 @@ export default function SettingsPage() {
               <h2 className="font-bold text-lg">AI Configuration</h2>
             </div>
             
-            {/* Groq key — Battle Mode AI */}
-            <Card className="bg-card border-none shadow-xl">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  Groq API Key
-                  <span className="text-[9px] font-black uppercase tracking-widest text-violet-500 bg-violet-500/10 px-2 py-0.5 rounded-full">
-                    Battle AI
-                  </span>
-                </CardTitle>
-                <CardDescription className="text-xs">
-                  Powers AI grammar checking in Battle Mode. Leave blank to use your 1 free trial session.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="space-y-2">
-                  <Input
-                    type="password"
-                    placeholder="Enter your Groq API key (starts with gsk_)"
-                    value={groqKey}
-                    onChange={(e) => { setGroqKey(e.target.value); if (isSaved) setIsSaved(false); }}
-                    className="bg-background border-border focus:ring-primary h-11"
-                  />
-                  <p className="text-[10px] text-muted-foreground flex items-center gap-1.5 px-1">
-                    <ShieldCheck className="h-3 w-3 text-emerald-500" />
-                    Stored in your browser only. Free at console.groq.com.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Gemini key — Practice Mode AI */}
+            {/* Gemini key — Courses only */}
             <Card className="bg-card border-none shadow-xl">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm flex items-center gap-2">
                   Gemini API Key
                   <span className="text-[9px] font-black uppercase tracking-widest text-blue-500 bg-blue-500/10 px-2 py-0.5 rounded-full">
-                    Practice AI
+                    Courses
                   </span>
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Required for AI conversations in Practice Mode.
+                  Used for AI-powered course content. Battle &amp; Practice use the built-in AI.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -254,25 +215,11 @@ export default function SettingsPage() {
           <Card className="bg-primary/5 border border-primary/20">
             <CardContent className="p-6 space-y-5">
               <div>
-                <div className="flex items-center gap-2 font-bold text-sm text-violet-500 mb-2">
-                  <div className="p-1.5 bg-violet-500/10 rounded-lg">
-                    <Info className="h-4 w-4" />
-                  </div>
-                  How to get a Groq API Key (free)
-                </div>
-                <ol className="text-xs text-muted-foreground space-y-1.5 list-decimal list-inside px-1">
-                  <li>Sign up at <a href="https://console.groq.com" target="_blank" rel="noopener noreferrer" className="text-violet-500 underline font-bold">console.groq.com</a> (free tier available).</li>
-                  <li>Go to API Keys in the left sidebar.</li>
-                  <li>Click "Create API Key".</li>
-                  <li>Copy the key (starts with <code className="bg-muted px-1 rounded">gsk_</code>) and paste it above.</li>
-                </ol>
-              </div>
-              <div className="border-t border-primary/10 pt-4">
                 <div className="flex items-center gap-2 font-bold text-sm text-primary mb-2">
                   <div className="p-1.5 bg-primary/10 rounded-lg">
                     <Info className="h-4 w-4" />
                   </div>
-                  How to get a Gemini API Key (Practice Mode)
+                  How to get a Gemini API Key (Courses)
                 </div>
                 <ol className="text-xs text-muted-foreground space-y-1.5 list-decimal list-inside px-1">
                   <li>Visit <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-primary underline font-bold">Google AI Studio</a>.</li>

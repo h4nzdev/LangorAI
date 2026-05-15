@@ -2,9 +2,13 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Mic, MicOff, Sparkles, Zap, AlertCircle, CheckCircle2, Lock, SendHorizonal, WifiOff, Timer, Flag } from 'lucide-react';
+import {
+  Mic, MicOff, Sparkles, AlertCircle, CheckCircle2, Lock,
+  SendHorizonal, WifiOff, Timer, Flag, Phone, PhoneOff, PhoneMissed,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useBattleRealtime } from '@/hooks/use-battle-realtime';
+import { useWebRTCVoice } from '@/hooks/use-webrtc-voice';
 import { useToast } from '@/hooks/use-toast';
 import { checkGrammar, preprocessVoiceText } from '@/lib/grammar-checker';
 import { pickTopicForGoal } from '@/lib/recommendations';
@@ -32,13 +36,21 @@ const MIN_WORDS        = 8;
 const TURN_TIMEOUT_SEC = 10;
 
 // ── Types ──────────────────────────────────────────────────────────────────────
+export interface TurnLog {
+  text:        string;
+  hasError:    boolean;
+  correction?: string;
+  explanation?: string;
+}
+
 interface BattleRoomProps {
   roomId: string;
   errorLimit: number;
-  learningGoal?: string; // from user profile — weights debate topic selection
+  learningGoal?: string;
   onBattleEnd: (result: {
     playerErrors: number; opponentErrors: number; playerAccuracy: number;
     fluencyScore: number; pointsEarned: number; winner: 'player' | 'opponent' | 'draw';
+    battleLog: TurnLog[];
   }) => void;
 }
 
@@ -50,10 +62,19 @@ interface ErrorOverlay {
 export function BattleRoom({ roomId, errorLimit, learningGoal, onBattleEnd }: BattleRoomProps) {
   const {
     room, player, opponent, currentUserId, currentSpeakerId,
-    opponentIsSpeaking, opponentTranscript, connectionStatus,
+    opponentTranscript, connectionStatus,
     reportError, broadcastSpeaking, broadcastTranscript, broadcastTurnChange,
   } = useBattleRealtime(roomId);
   const { toast } = useToast();
+
+  const {
+    isConnected: voiceConnected,
+    isConnecting: voiceConnecting,
+    voiceMuted,
+    connect: connectVoice,
+    disconnect: disconnectVoice,
+    toggleVoiceMute,
+  } = useWebRTCVoice(roomId, currentUserId ?? undefined, opponent?.user_id ?? undefined);
 
   const [isMuted, setIsMuted]           = useState(false);
   const [isListening, setIsListening]   = useState(false);
@@ -62,7 +83,6 @@ export function BattleRoom({ roomId, errorLimit, learningGoal, onBattleEnd }: Ba
   const [correctFlash, setCorrectFlash] = useState(false);
   const [battleEnded, setBattleEnded]   = useState(false);
   const [speechSupported, setSpeechSupported] = useState(true);
-  const [aiMode, setAiMode]             = useState(false);
   const [elapsed, setElapsed]           = useState(0);
   const [motion]                        = useState(() => pickTopicForGoal(roomId, learningGoal ?? 'General', DEBATE_MOTIONS));
   const [isSwitchingTurn, setIsSwitchingTurn]   = useState(false);
@@ -71,35 +91,30 @@ export function BattleRoom({ roomId, errorLimit, learningGoal, onBattleEnd }: Ba
   const [turnTimeLeft, setTurnTimeLeft]         = useState<number | null>(null);
   const [surrenderConfirm, setSurrenderConfirm] = useState(false);
   const [isSurrendering, setIsSurrendering]     = useState(false);
-  // 'own' = user has personal Groq key | 'free' = using built-in free trial | 'none' = no AI
-  const [aiTier, setAiTier] = useState<'own' | 'free' | 'none'>('none');
-  const isFreeSessionRef    = useRef(false);
+  const [battleLog, setBattleLog]               = useState<TurnLog[]>([]);
 
   const recognitionRef       = useRef<any>(null); // eslint-disable-line @typescript-eslint/no-explicit-any
   const isMutedRef           = useRef(false);
   const battleEndedRef       = useRef(false);
   const startTimeRef         = useRef(Date.now());
-  // Always-current refs so callbacks never hold stale closures
   const opponentRef          = useRef(opponent);
   const handleFinalRef       = useRef<(text: string) => void>(() => {});
   const startRecognitionRef  = useRef<() => void>(() => {});
   const myTranscriptRef      = useRef('');
   const isMyTurnRef          = useRef(false);
-  // Tracks whether the current recognition session already fired isFinal
   const finalizedRef         = useRef(false);
-  // Set to true by stopRecognition so onend doesn't fight against an intentional abort
   const abortedRef           = useRef(false);
-  // Tracks if the player has spoken at all this turn (prevents timer restarting on pause)
   const hasSpokenThisTurnRef = useRef(false);
   const turnTimerRef         = useRef<ReturnType<typeof setInterval> | null>(null);
   const handleTimeExpiredRef = useRef<() => void>(() => {});
+  const battleLogRef         = useRef<TurnLog[]>([]);
 
-  useEffect(() => { isMutedRef.current     = isMuted;    }, [isMuted]);
-  useEffect(() => { battleEndedRef.current = battleEnded; }, [battleEnded]);
-  useEffect(() => { opponentRef.current    = opponent;    }, [opponent]);
+  useEffect(() => { isMutedRef.current      = isMuted;      }, [isMuted]);
+  useEffect(() => { battleEndedRef.current  = battleEnded;  }, [battleEnded]);
+  useEffect(() => { opponentRef.current     = opponent;     }, [opponent]);
   useEffect(() => { myTranscriptRef.current = myTranscript; }, [myTranscript]);
+  useEffect(() => { battleLogRef.current    = battleLog;    }, [battleLog]);
 
-  // Debate position: lex-smaller user_id → FOR, larger → AGAINST
   const myPosition = currentUserId && opponent
     ? (currentUserId.localeCompare(opponent.user_id) < 0 ? 'FOR' : 'AGAINST')
     : null;
@@ -109,42 +124,37 @@ export function BattleRoom({ roomId, errorLimit, learningGoal, onBattleEnd }: Ba
     const id = setInterval(() => setElapsed(Math.floor((Date.now() - startTimeRef.current) / 1000)), 1000);
     return () => clearInterval(id);
   }, []);
-  const formatTime = (s: number) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+  const formatTime = (s: number) =>
+    `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition; // eslint-disable-line @typescript-eslint/no-explicit-any
     if (!SR) setSpeechSupported(false);
-
-    const hasOwnKey      = !!localStorage.getItem('GROQ_API_KEY');
-    const freeSessionVal = localStorage.getItem('GROQ_FREE_SESSION_USED');
-
-    if (hasOwnKey) {
-      setAiTier('own');
-      setAiMode(true);
-    } else if (freeSessionVal !== 'used') {
-      setAiTier('free');
-      setAiMode(true);
-      isFreeSessionRef.current = true;
-      localStorage.setItem('GROQ_FREE_SESSION_USED', 'active');
-    } else {
-      setAiTier('none');
-      setAiMode(false);
-    }
   }, []);
 
-  // Derived turn state
+  // Auto-connect WebRTC once both players are in
+  useEffect(() => {
+    if (opponent?.user_id && currentUserId && room?.status === 'active' && !voiceConnected && !voiceConnecting) {
+      connectVoice();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [opponent?.user_id, currentUserId, room?.status]);
+
+  // Disconnect WebRTC on battle end
+  useEffect(() => {
+    if (battleEnded) disconnectVoice();
+  }, [battleEnded, disconnectVoice]);
+
   const isMyTurn       = currentSpeakerId === currentUserId;
   const isOpponentTurn = currentSpeakerId !== null && currentSpeakerId !== currentUserId;
 
   useEffect(() => { isMyTurnRef.current = isMyTurn; }, [isMyTurn]);
 
-  // Reset "has spoken" flag every time a new turn starts for me
   useEffect(() => {
     if (isMyTurn) hasSpokenThisTurnRef.current = false;
   }, [isMyTurn]);
 
-  // Track when the player first starts speaking this turn
   useEffect(() => {
     if (isListening) hasSpokenThisTurnRef.current = true;
   }, [isListening]);
@@ -156,7 +166,6 @@ export function BattleRoom({ roomId, errorLimit, learningGoal, onBattleEnd }: Ba
       setTurnTimeLeft(null);
     };
 
-    // Only run when it's my turn, battle is live, and I haven't spoken yet
     if (!isMyTurn || room?.status !== 'active' || battleEnded || isSwitchingTurn ||
         isListening || hasSpokenThisTurnRef.current) {
       clear();
@@ -169,10 +178,7 @@ export function BattleRoom({ roomId, errorLimit, learningGoal, onBattleEnd }: Ba
     turnTimerRef.current = setInterval(() => {
       remaining -= 1;
       setTurnTimeLeft(remaining);
-      if (remaining <= 0) {
-        clear();
-        handleTimeExpiredRef.current();
-      }
+      if (remaining <= 0) { clear(); handleTimeExpiredRef.current(); }
     }, 1000);
 
     return clear;
@@ -185,23 +191,20 @@ export function BattleRoom({ roomId, errorLimit, learningGoal, onBattleEnd }: Ba
     setBattleEnded(true);
     stopRecognition();
 
-    // Consume the free trial slot when the battle finishes
-    if (isFreeSessionRef.current) {
-      localStorage.setItem('GROQ_FREE_SESSION_USED', 'used');
-      isFreeSessionRef.current = false;
-    }
-
     const playerErrors   = player?.error_count  ?? 0;
     const opponentErrors = opponent?.error_count ?? 0;
-    const playerWon = room.winner_id === currentUserId;
-    const isDraw    = !room.winner_id;
+    const playerWon      = room.winner_id === currentUserId;
+    const isDraw         = !room.winner_id;
+    const logSnapshot    = battleLogRef.current;
+
     setTimeout(() => {
       onBattleEnd({
         playerErrors, opponentErrors,
         playerAccuracy: player?.accuracy ?? 100,
-        fluencyScore: Math.round(100 - (playerErrors / errorLimit) * 50),
-        pointsEarned: playerWon ? 20 : isDraw ? 10 : 5,
-        winner: playerWon ? 'player' : isDraw ? 'draw' : 'opponent',
+        fluencyScore:   Math.round(100 - (playerErrors / errorLimit) * 50),
+        pointsEarned:   playerWon ? 20 : isDraw ? 10 : 5,
+        winner:         playerWon ? 'player' : isDraw ? 'draw' : 'opponent',
+        battleLog:      logSnapshot,
       });
     }, 1200);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -210,7 +213,7 @@ export function BattleRoom({ roomId, errorLimit, learningGoal, onBattleEnd }: Ba
   // ── Recognition helpers ──────────────────────────────────────────────────────
   const stopRecognition = useCallback(() => {
     if (recognitionRef.current) {
-      abortedRef.current = true; // tell onend this was intentional — don't restart
+      abortedRef.current = true;
       recognitionRef.current.abort();
       recognitionRef.current = null;
     }
@@ -223,8 +226,8 @@ export function BattleRoom({ roomId, errorLimit, learningGoal, onBattleEnd }: Ba
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition; // eslint-disable-line @typescript-eslint/no-explicit-any
     if (!SR) return;
 
-    finalizedRef.current = false; // Reset for this new utterance
-    abortedRef.current   = false; // Reset abort flag for this new utterance
+    finalizedRef.current = false;
+    abortedRef.current   = false;
 
     const rec = new SR();
     rec.lang            = 'en-US';
@@ -232,17 +235,13 @@ export function BattleRoom({ roomId, errorLimit, learningGoal, onBattleEnd }: Ba
     rec.interimResults  = true;
     rec.maxAlternatives = 1;
 
-    rec.onstart = () => {
-      setIsListening(true);
-      broadcastSpeaking(true);
-    };
+    rec.onstart = () => { setIsListening(true); broadcastSpeaking(true); };
 
     rec.onresult = (event: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
       const result = event.results[event.resultIndex];
       const text   = result[0].transcript;
       setMyTranscript(text);
       broadcastTranscript(text);
-
       if (result.isFinal) {
         finalizedRef.current = true;
         setMyTranscript('');
@@ -255,22 +254,15 @@ export function BattleRoom({ roomId, errorLimit, learningGoal, onBattleEnd }: Ba
       recognitionRef.current = null;
       broadcastSpeaking(false);
 
-      // Intentionally stopped (turn switch, mute, manual send) — do nothing
-      if (abortedRef.current) {
-        abortedRef.current = false;
-        return;
-      }
+      if (abortedRef.current) { abortedRef.current = false; return; }
 
       if (!finalizedRef.current && isMyTurnRef.current && !battleEndedRef.current) {
-        const pending = myTranscriptRef.current.trim();
-        const wordCount = pending.split(/\s+/).filter(Boolean).length;
-
+        const pending    = myTranscriptRef.current.trim();
+        const wordCount  = pending.split(/\s+/).filter(Boolean).length;
         if (wordCount >= MIN_WORDS) {
-          // Enough content — auto-submit (handles mobile where isFinal never fires)
           setMyTranscript('');
           setTimeout(() => handleFinalRef.current(pending), 80);
         } else {
-          // Paused mid-sentence or no speech yet — restart mic so they can continue
           setTimeout(() => startRecognitionRef.current(), 400);
         }
       }
@@ -281,7 +273,6 @@ export function BattleRoom({ roomId, errorLimit, learningGoal, onBattleEnd }: Ba
         toast({ variant: 'destructive', title: 'Microphone blocked', description: 'Allow microphone access to play.' });
         setBattleEnded(true);
       }
-      // 'no-speech' and other errors let onend handle cleanup
     };
 
     recognitionRef.current = rec;
@@ -291,12 +282,11 @@ export function BattleRoom({ roomId, errorLimit, learningGoal, onBattleEnd }: Ba
   // ── Switch turn ──────────────────────────────────────────────────────────────
   const switchTurn = useCallback(() => {
     if (!opponentRef.current || battleEndedRef.current) return;
-    const nextId = opponentRef.current.user_id;
     setIsSwitchingTurn(true);
     setTimeout(() => {
-      broadcastTurnChange(nextId);
+      broadcastTurnChange(opponentRef.current!.user_id);
       setIsSwitchingTurn(false);
-    }, 1200); // Long enough to read "Switching…" without feeling rushed
+    }, 1200);
   }, [broadcastTurnChange]);
 
   // ── Time-expired penalty ─────────────────────────────────────────────────────
@@ -312,98 +302,87 @@ export function BattleRoom({ roomId, errorLimit, learningGoal, onBattleEnd }: Ba
   useEffect(() => { handleTimeExpiredRef.current = handleTimeExpired; }, [handleTimeExpired]);
 
   // ── Grammar check & turn hand-off ────────────────────────────────────────────
-  // IMPORTANT: turn switches FIRST, grammar check runs in background after.
-  // This is the core fix for the "stuck turn" / lag bug — the API call must
-  // never block the turn transition.
   const handleFinalUtterance = useCallback(async (text: string) => {
     if (!text.trim() || battleEndedRef.current) return;
 
     const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
     if (wordCount < MIN_WORDS) {
       setTooShortWarning(true);
-      setTimeout(() => {
-        setTooShortWarning(false);
-        startRecognitionRef.current();
-      }, 1800);
+      setTimeout(() => { setTooShortWarning(false); startRecognitionRef.current(); }, 1800);
       return;
     }
 
-    // Fix STT artefacts (lowercase "i", capitalise first word) before checking
     const processed = preprocessVoiceText(text);
 
-    // ✅ Switch turn immediately — do NOT wait for grammar check
+    // Switch turn immediately — do NOT wait for grammar check
     switchTurn();
 
     // Local synchronous check (zero latency)
     const local = checkGrammar(processed);
+    const logEntry: TurnLog = {
+      text:        processed,
+      hasError:    local.hasError,
+      correction:  local.correctedText,
+      explanation: local.explanation,
+    };
+    setBattleLog(prev => [...prev, logEntry]);
 
     if (local.hasError && local.correctedText) {
       setErrorOverlay({
-        originalText: local.originalText,
-        correctedText: local.correctedText,
-        explanation: local.explanation ?? '',
-        enhanced: false,
+        originalText: local.originalText, correctedText: local.correctedText,
+        explanation: local.explanation ?? '', enhanced: false,
       });
-      // Fire-and-forget — DB update happens in background, doesn't block anything
       void reportError();
       setTimeout(() => setErrorOverlay(null), 4000);
+    } else {
+      setCorrectFlash(true);
+      setTimeout(() => setCorrectFlash(false), 900);
+    }
 
-      // Optional Groq AI enhancement (fully non-blocking, decorative only)
-      const groqKey   = localStorage.getItem('GROQ_API_KEY') || undefined;
-      const freeTrial = !groqKey && isFreeSessionRef.current;
-      if (groqKey || freeTrial) {
-        fetch('/api/battle/grammar', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ transcript: processed, apiKey: groqKey, freeSession: freeTrial }),
-        })
-          .then(r => r.ok ? r.json() : null)
-          .then((d: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
-            if (d?.hasError && d.corrections?.[0]) {
-              setErrorOverlay(prev => prev ? {
-                ...prev,
-                correctedText: d.corrections[0].correct || prev.correctedText,
-                explanation: d.corrections[0].explanation || prev.explanation,
-                enhanced: true,
-              } : null);
+    // Groq AI enhancement — always runs using built-in server key
+    fetch('/api/battle/grammar', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ transcript: processed }),
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then((d: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+        if (!d?.hasError || !d.corrections?.[0]) return;
+        const c = d.corrections[0];
+
+        if (!local.hasError) {
+          // Groq found an error local missed
+          setErrorOverlay({ originalText: c.incorrect, correctedText: c.correct, explanation: c.explanation, enhanced: true });
+          void reportError();
+          setTimeout(() => setErrorOverlay(null), 4000);
+          // Update log entry for this turn
+          setBattleLog(prev => {
+            const updated = [...prev];
+            const idx = [...updated].reverse().findIndex(e => e.text === processed);
+            if (idx >= 0) {
+              const realIdx = updated.length - 1 - idx;
+              updated[realIdx] = { ...updated[realIdx], hasError: true, correction: c.correct, explanation: c.explanation };
             }
-          })
-          .catch(() => null);
-      }
-      return;
-    }
-
-    // No local error — show correct flash, optionally run Groq AI check
-    setCorrectFlash(true);
-    setTimeout(() => setCorrectFlash(false), 900);
-
-    const groqKey   = localStorage.getItem('GROQ_API_KEY') || undefined;
-    const freeTrial = !groqKey && isFreeSessionRef.current;
-    if (groqKey || freeTrial) {
-      fetch('/api/battle/grammar', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcript: processed, apiKey: groqKey, freeSession: freeTrial }),
+            return updated;
+          });
+        } else {
+          // Enhance existing overlay with Groq's correction
+          setErrorOverlay(prev => prev ? {
+            ...prev,
+            correctedText: c.correct      || prev.correctedText,
+            explanation:   c.explanation  || prev.explanation,
+            enhanced:      true,
+          } : null);
+        }
       })
-        .then(r => r.ok ? r.json() : null)
-        .then(async (d: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
-          if (d?.hasError && d.corrections?.[0]) {
-            const c = d.corrections[0];
-            setErrorOverlay({ originalText: c.incorrect, correctedText: c.correct, explanation: c.explanation, enhanced: true });
-            void reportError();
-            setTimeout(() => setErrorOverlay(null), 4000);
-          }
-        })
-        .catch(() => null);
-    }
+      .catch(() => null);
   }, [reportError, switchTurn]);
 
-  // Keep refs in sync so recognition callbacks never hold stale closures
   useEffect(() => { handleFinalRef.current      = handleFinalUtterance; }, [handleFinalUtterance]);
   useEffect(() => { startRecognitionRef.current = startRecognition;     }, [startRecognition]);
 
   // ── Auto-manage mic based on turn ────────────────────────────────────────────
   useEffect(() => {
     if (room?.status !== 'active' || battleEnded || isSwitchingTurn) return;
-
     if (isMyTurn && !isMuted) {
       const timer = setTimeout(() => startRecognition(), 400);
       return () => clearTimeout(timer);
@@ -413,7 +392,7 @@ export function BattleRoom({ roomId, errorLimit, learningGoal, onBattleEnd }: Ba
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMyTurn, room?.status, isSwitchingTurn, isMuted]);
 
-  // Watchdog: if it's my turn but the mic is stuck in "Ready" for > 1.2s, force-restart
+  // Watchdog: force-restart if mic is stuck in "Ready"
   useEffect(() => {
     if (!isMyTurn || isListening || isMuted || battleEnded || isSwitchingTurn || room?.status !== 'active') return;
     const watchdog = setTimeout(() => {
@@ -428,13 +407,12 @@ export function BattleRoom({ roomId, errorLimit, learningGoal, onBattleEnd }: Ba
     if (muting) stopRecognition();
   };
 
-  // Manually finalise the current utterance (for mobile where auto-final is unreliable)
   const handleManualSend = useCallback(() => {
     const text = myTranscriptRef.current.trim();
     if (!text || battleEndedRef.current) return;
     if (recognitionRef.current) {
-      abortedRef.current   = true; // prevent onend from restarting
-      finalizedRef.current = true; // prevent onend from auto-submitting
+      abortedRef.current   = true;
+      finalizedRef.current = true;
       recognitionRef.current.abort();
       recognitionRef.current = null;
     }
@@ -481,24 +459,37 @@ export function BattleRoom({ roomId, errorLimit, learningGoal, onBattleEnd }: Ba
           <span className="text-white font-mono font-bold text-sm tracking-widest">{formatTime(elapsed)}</span>
         </div>
 
-        <div className={cn(
-          'flex items-center gap-1.5 rounded-full px-3 py-1.5 border text-[9px] font-black uppercase tracking-widest',
-          aiTier === 'own'  ? 'bg-violet-500/20 border-violet-500/40 text-violet-300' :
-          aiTier === 'free' ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300' :
-                              'bg-primary/20 border-primary/40 text-primary'
-        )}>
-          {aiTier !== 'none' ? <Sparkles className="h-3 w-3" /> : <Zap className="h-3 w-3" />}
-          {aiTier === 'own' ? 'Groq AI' : aiTier === 'free' ? 'AI Trial' : 'Rule'}
+        {/* WebRTC voice indicator */}
+        <button
+          onClick={() => voiceConnected ? disconnectVoice() : connectVoice()}
+          className={cn(
+            'flex items-center gap-1.5 rounded-full px-3 py-1.5 border text-[9px] font-black uppercase tracking-widest transition-colors',
+            voiceConnected
+              ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/30'
+              : voiceConnecting
+              ? 'bg-yellow-500/20 border-yellow-500/40 text-yellow-300 cursor-wait'
+              : 'bg-white/5 border-white/10 text-white/30 hover:bg-white/10 hover:text-white/50'
+          )}
+        >
+          {voiceConnected
+            ? <><Phone className="h-3 w-3" /> Voice</>
+            : voiceConnecting
+            ? <><Phone className="h-3 w-3 animate-pulse" /> Connecting…</>
+            : <><PhoneMissed className="h-3 w-3" /> No Voice</>
+          }
+        </button>
+
+        <div className="flex items-center gap-1.5 rounded-full px-3 py-1.5 border text-[9px] font-black uppercase tracking-widest bg-violet-500/20 border-violet-500/40 text-violet-300">
+          <Sparkles className="h-3 w-3" />
+          Groq AI
         </div>
       </div>
 
       {/* ── Debate motion banner ─────────────────────────────────────────────────── */}
       <div className="shrink-0 mx-3 mb-1 rounded-2xl overflow-hidden border border-primary/30 shadow-lg shadow-primary/10">
-        {/* Gradient header bar */}
         <div className="bg-gradient-to-r from-primary/30 via-violet-500/20 to-primary/30 px-4 py-1.5 flex items-center justify-center gap-2">
           <span className="text-[8px] font-black uppercase tracking-[0.3em] text-primary/80">⚖️ Today&apos;s Motion</span>
         </div>
-        {/* Motion text — highlighted */}
         <div className="bg-white/[0.04] px-5 py-3">
           <p className="text-sm font-black text-white text-center leading-snug tracking-wide drop-shadow-sm">
             &ldquo;{motion}&rdquo;
@@ -541,7 +532,6 @@ export function BattleRoom({ roomId, errorLimit, learningGoal, onBattleEnd }: Ba
           </div>
         )}
 
-        {/* Countdown — only shown when my turn and haven't spoken yet */}
         {isMyTurn && turnTimeLeft !== null && !isListening && !timeExpiredFlash && !tooShortWarning && (
           <div className={cn(
             'flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest transition-colors',
@@ -660,7 +650,7 @@ export function BattleRoom({ roomId, errorLimit, learningGoal, onBattleEnd }: Ba
           <p className="text-destructive text-sm font-bold uppercase tracking-widest animate-pulse text-center">Error limit reached</p>
         ) : (
           <div className="flex items-center gap-5">
-            {/* Mute button */}
+            {/* Mute STT button */}
             <button
               onClick={toggleMute}
               className={cn(
@@ -691,7 +681,7 @@ export function BattleRoom({ roomId, errorLimit, learningGoal, onBattleEnd }: Ba
               </span>
             </div>
 
-            {/* Send button — manually submit the current transcript */}
+            {/* Send button */}
             <button
               onClick={handleManualSend}
               disabled={!isMyTurn || !myTranscript}
@@ -705,6 +695,22 @@ export function BattleRoom({ roomId, errorLimit, learningGoal, onBattleEnd }: Ba
               <SendHorizonal className="h-6 w-6" />
             </button>
           </div>
+        )}
+
+        {/* Voice mute (WebRTC) */}
+        {voiceConnected && (
+          <button
+            onClick={toggleVoiceMute}
+            className={cn(
+              'flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full border transition-colors',
+              voiceMuted
+                ? 'bg-destructive/20 border-destructive/50 text-destructive'
+                : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
+            )}
+          >
+            {voiceMuted ? <PhoneOff className="h-3 w-3" /> : <Phone className="h-3 w-3" />}
+            {voiceMuted ? 'Voice Muted' : 'Voice On'}
+          </button>
         )}
 
         {/* Error progress */}

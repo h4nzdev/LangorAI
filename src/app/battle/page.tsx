@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { BattleMenu, Matchmaking, BattleRoom, BattleResult } from '@/components/battle';
 import type { BattleHistoryItem } from '@/components/battle/BattleMenu';
+import type { TurnLog } from '@/components/battle/BattleRoom';
 import { Navigation } from '@/components/navigation';
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -20,6 +21,7 @@ interface BattleResultData {
   fluencyScore: number;
   pointsEarned: number;
   winner: 'player' | 'opponent' | 'draw';
+  battleLog: TurnLog[];
 }
 
 interface UserBattleStats {
@@ -317,6 +319,7 @@ export default function BattlePage() {
             playerAccuracy={result.playerAccuracy}
             fluencyScore={result.fluencyScore}
             pointsEarned={result.pointsEarned}
+            battleLog={result.battleLog}
             onPlayAgain={handlePlayAgain}
             onReturnToMenu={handleReturnToMenu}
           />

@@ -1,143 +1,223 @@
 'use server';
-/**
- * @fileOverview Langor AI Practice Session and Analysis Flows.
- * 
- * - startPracticeSession: Handles turn-by-turn conversation and immediate feedback.
- * - summarizeSession: Analyzes the complete session to provide final scores and recommendations.
- */
 
-import { ai as globalAi } from '@/ai/genkit';
-import { genkit, z } from 'genkit';
-import { googleAI } from '@genkit-ai/google-genai';
+import { z } from 'zod';
+
+const GROQ_URL   = 'https://api.groq.com/openai/v1/chat/completions';
+const GROQ_MODEL = 'llama-3.3-70b-versatile';
+
+async function callGroq(
+  messages: { role: string; content: string }[],
+  maxTokens = 600,
+): Promise<string> {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) throw new Error('GROQ_API_KEY not configured');
+
+  const res = await fetch(GROQ_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type':  'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model:           GROQ_MODEL,
+      response_format: { type: 'json_object' },
+      temperature:     0.7,
+      max_tokens:      maxTokens,
+      messages,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Groq ${res.status}: ${err}`);
+  }
+
+  const data    = await res.json();
+  const content = data.choices?.[0]?.message?.content;
+  if (!content) throw new Error('Empty Groq response');
+  return content;
+}
+
+// ── Practice session ──────────────────────────────────────────────────────────
 
 const PracticeInputSchema = z.object({
-  userInput: z.string().describe('The text transcribed from the user\'s speech.'),
-  history: z.array(z.object({
-    role: z.enum(['user', 'model']),
-    text: z.string()
-  })).optional().describe('The previous turns in the conversation.'),
-  topic: z.string().optional().default('Hobbies and Interests'),
+  userInput:   z.string(),
+  history:     z.array(z.object({ role: z.enum(['user', 'model']), text: z.string() })).optional(),
+  topic:       z.string().optional().default('Hobbies and Interests'),
   interviewer: z.string().optional().default('Langor AI'),
-  apiKey: z.string().optional().describe('An optional user-provided Google AI API Key.'),
+  apiKey:      z.string().optional(), // kept for back-compat but ignored — Groq is built-in
 });
 
 const PracticeOutputSchema = z.object({
-  aiResponse: z.string().describe('The natural conversational response from the AI tutor.'),
+  aiResponse: z.string(),
   feedback: z.object({
-    originalText: z.string(),
+    originalText:  z.string(),
     correctedText: z.string().optional(),
-    explanation: z.string().optional(),
+    explanation:   z.string().optional(),
     hasCorrection: z.boolean(),
-  }).describe('Grammar and fluency feedback on the user\'s last input.'),
+  }),
 });
 
-export type PracticeInput = z.infer<typeof PracticeInputSchema>;
+export type PracticeInput  = z.infer<typeof PracticeInputSchema>;
 export type PracticeOutput = z.infer<typeof PracticeOutputSchema>;
 
 export async function startPracticeSession(input: PracticeInput): Promise<PracticeOutput> {
-  const aiInstance = input.apiKey 
-    ? genkit({ plugins: [googleAI({ apiKey: input.apiKey })], model: 'googleai/gemini-2.5-flash' }) 
-    : globalAi;
+  const tutor    = input.interviewer ?? 'Langor AI';
+  const topic    = input.topic       ?? 'Hobbies and Interests';
+  const history  = input.history     ?? [];
 
-  const practicePrompt = aiInstance.definePrompt({
-    name: 'practicePrompt',
-    input: { schema: PracticeInputSchema },
-    output: { schema: PracticeOutputSchema },
-    prompt: `You are {{{interviewer}}}, a friendly and professional language tutor. 
-    
-    Current Scenario: {{{topic}}}
+  const historyText = history
+    .map(h => `${h.role === 'user' ? 'Student' : 'Tutor'}: ${h.text}`)
+    .join('\n');
 
-    INSTRUCTIONS FOR SCENARIO:
-    - If Scenario is "Job Interview": You are a professional hiring manager. Ask probing questions about the user's career, strengths, and experience. Use formal business English.
-    - If Scenario is "Reporting": You are a senior executive or stakeholder. Ask for specific project data, status updates, and professional summaries. Focus on business clarity.
-    - If Scenario is "Casual Chat" or anything else: You are a friendly language partner. Keep the tone social and engaging, focusing on hobbies and daily life.
+  const systemPrompt =
+`You are ${tutor}, a friendly language tutor helping a student practise spoken English.
+Current Scenario: ${topic}
 
-    YOUR GOALS:
-    1. Maintain your persona and the scenario context perfectly.
-    2. Subtly correct any grammar or vocabulary mistakes they make in the 'feedback' object.
-    3. Keep your responses concise (1-3 sentences).
+PERSONA:
+- "Job Interview": professional hiring manager, formal business English, probing career questions.
+- "Reporting": senior executive, ask for project data and professional summaries.
+- Anything else: friendly language partner, casual tone, hobbies and daily life.
 
-    In the 'feedback' object:
-    - 'hasCorrection' should be true ONLY if there is a significant grammar or phrasing error.
-    - Provide a 'correctedText' that sounds more native.
-    - Provide a brief 'explanation'.
+RULES:
+1. Stay in persona. Keep your response to 1-3 sentences.
+2. Gently correct grammar/vocabulary mistakes in the feedback field only — never in your spoken response.
+3. Set hasCorrection to true ONLY for real grammar or phrasing errors, not minor informalities.
 
-    Conversation History:
-    {{#each history}}
-    {{role}}: {{text}}
-    {{/each}}
+Respond ONLY with valid JSON:
+{
+  "aiResponse": "<your 1-3 sentence conversational response>",
+  "feedback": {
+    "originalText": "<student's exact text>",
+    "correctedText": "<corrected version if hasCorrection is true, otherwise same as original>",
+    "explanation": "<one-sentence explanation if hasCorrection is true, otherwise empty string>",
+    "hasCorrection": <true|false>
+  }
+}`;
 
-    User Input: {{{userInput}}}`,
-  });
+  const userMessage = historyText
+    ? `${historyText}\nStudent: ${input.userInput}`
+    : `Student: ${input.userInput}`;
 
-  const { output } = await practicePrompt(input);
-  if (!output) throw new Error('AI failed to generate a response');
-  return output;
+  try {
+    const raw    = await callGroq([
+      { role: 'system', content: systemPrompt },
+      { role: 'user',   content: userMessage },
+    ]);
+    const parsed = JSON.parse(raw);
+
+    return {
+      aiResponse: parsed.aiResponse ?? 'Could you tell me more about that?',
+      feedback: {
+        originalText:  parsed.feedback?.originalText  ?? input.userInput,
+        correctedText: parsed.feedback?.correctedText  ?? undefined,
+        explanation:   parsed.feedback?.explanation    ?? undefined,
+        hasCorrection: parsed.feedback?.hasCorrection  ?? false,
+      },
+    };
+  } catch {
+    return {
+      aiResponse: 'That\'s interesting! Could you elaborate a bit more?',
+      feedback: { originalText: input.userInput, hasCorrection: false },
+    };
+  }
 }
 
-// Analysis Flow
+// ── Session summary ───────────────────────────────────────────────────────────
+
 const SummarizeInputSchema = z.object({
-  history: z.array(z.object({
-    role: z.enum(['user', 'model', 'system']),
-    text: z.string()
-  })),
-  apiKey: z.string().optional(),
+  history: z.array(z.object({ role: z.enum(['user', 'model', 'system']), text: z.string() })),
+  apiKey:  z.string().optional(), // kept for back-compat, ignored
 });
 
 const SummarizeOutputSchema = z.object({
   overallScore: z.number().min(0).max(100),
   metrics: z.object({
-    fluency: z.number().min(0).max(100),
-    grammar: z.number().min(0).max(100),
-    vocabulary: z.number().min(0).max(100),
-    pronunciation: z.number().min(0).max(100).describe('Estimate based on text patterns and transcription quality.'),
+    fluency:       z.number().min(0).max(100),
+    grammar:       z.number().min(0).max(100),
+    vocabulary:    z.number().min(0).max(100),
+    pronunciation: z.number().min(0).max(100),
   }),
   insights: z.object({
-    fluency: z.string(),
-    grammar: z.string(),
-    vocabulary: z.string(),
+    fluency:       z.string(),
+    grammar:       z.string(),
+    vocabulary:    z.string(),
     pronunciation: z.string(),
   }),
   keyImprovements: z.array(z.object({
-    error: z.string(),
+    error:      z.string(),
     correction: z.string(),
-    rule: z.string(),
+    rule:       z.string(),
   })).max(3),
   recommendedExercise: z.object({
-    title: z.string(),
+    title:       z.string(),
     description: z.string(),
   }),
 });
 
 export type SummarizeOutput = z.infer<typeof SummarizeOutputSchema>;
 
-export async function summarizeSession(input: z.infer<typeof SummarizeInputSchema>): Promise<SummarizeOutput> {
-  const aiInstance = input.apiKey 
-    ? genkit({ plugins: [googleAI({ apiKey: input.apiKey })], model: 'googleai/gemini-2.5-flash' }) 
-    : globalAi;
+export async function summarizeSession(
+  input: z.infer<typeof SummarizeInputSchema>,
+): Promise<SummarizeOutput> {
+  const historyText = input.history
+    .filter(h => h.role !== 'system')
+    .map(h => `${h.role === 'user' ? 'Student' : 'Tutor'}: ${h.text}`)
+    .join('\n');
 
-  const summaryPrompt = aiInstance.definePrompt({
-    name: 'summaryPrompt',
-    input: { schema: SummarizeInputSchema },
-    output: { schema: SummarizeOutputSchema },
-    prompt: `You are a Language Learning Analyst. Analyze the following conversation history between a student and an AI tutor.
-    
-    Provide a comprehensive evaluation of the student's performance.
-    
-    Conversation History:
-    {{#each history}}
-    {{role}}: {{text}}
-    {{/each}}
-    
-    Evaluation Guidelines:
-    - Overall Score: A weighted average of all metrics.
-    - Metrics: Score from 0-100.
-    - Insights: Brief, encouraging descriptions for each metric.
-    - Key Improvements: Pick up to 3 most important grammar or vocabulary mistakes to highlight.
-    - Recommended Exercise: Suggest a specific focus area for the next session based on weaknesses.`,
-  });
+  const systemPrompt =
+`You are a Language Learning Analyst. Evaluate the student's spoken English from the conversation below.
 
-  const { output } = await summaryPrompt(input);
-  if (!output) throw new Error('Failed to generate session summary');
-  return output;
+Respond ONLY with valid JSON:
+{
+  "overallScore": <number 0-100>,
+  "metrics": {
+    "fluency":       <number 0-100>,
+    "grammar":       <number 0-100>,
+    "vocabulary":    <number 0-100>,
+    "pronunciation": <number 0-100>
+  },
+  "insights": {
+    "fluency":       "<one encouraging sentence>",
+    "grammar":       "<one encouraging sentence>",
+    "vocabulary":    "<one encouraging sentence>",
+    "pronunciation": "<one encouraging sentence>"
+  },
+  "keyImprovements": [
+    { "error": "<what was wrong>", "correction": "<the fix>", "rule": "<grammar rule>" }
+  ],
+  "recommendedExercise": {
+    "title":       "<short exercise name>",
+    "description": "<what to practise and why>"
+  }
+}
+
+Guidelines:
+- overallScore = weighted average of all four metrics
+- keyImprovements: max 3 items, most important errors only
+- Be encouraging and constructive in all insight strings`;
+
+  try {
+    const raw    = await callGroq(
+      [
+        { role: 'system', content: systemPrompt },
+        { role: 'user',   content: `Conversation:\n${historyText}` },
+      ],
+      800,
+    );
+    return JSON.parse(raw) as SummarizeOutput;
+  } catch {
+    return {
+      overallScore: 70,
+      metrics:      { fluency: 70, grammar: 70, vocabulary: 70, pronunciation: 70 },
+      insights:     {
+        fluency:       'You spoke at a good pace throughout the session.',
+        grammar:       'Your sentence structures were mostly correct.',
+        vocabulary:    'You used a reasonable range of vocabulary.',
+        pronunciation: 'Your pronunciation was generally clear.',
+      },
+      keyImprovements:     [],
+      recommendedExercise: { title: 'Daily Speaking', description: 'Practise speaking for 5 minutes daily on any topic.' },
+    };
+  }
 }

@@ -31,54 +31,43 @@ Correction rules:
 
 Keep explanations under 12 words. Be strict on structure, lenient on content words.`
 
-async function callGroq(transcript: string, apiKey: string) {
-  const res = await fetch(GROQ_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type':  'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model:           GROQ_MODEL,
-      response_format: { type: 'json_object' },
-      temperature:     0.1,
-      max_tokens:      300,
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user',   content: `Check this spoken English: "${transcript}"` },
-      ],
-    }),
-  })
-
-  if (!res.ok) throw new Error(`Groq ${res.status}`)
-  const data = await res.json()
-  const content = data.choices?.[0]?.message?.content
-  if (!content) throw new Error('Empty Groq response')
-  return JSON.parse(content)
-}
-
 export async function POST(request: Request) {
   try {
-    const { transcript, apiKey, freeSession } = await request.json()
+    const { transcript } = await request.json()
 
     if (!transcript?.trim()) {
       return NextResponse.json({ hasError: false, corrections: [] })
     }
 
-    // Priority: user's own Groq key → built-in free-trial key → no AI
-    let keyToUse: string | null = null
-
-    if (typeof apiKey === 'string' && apiKey.startsWith('gsk_')) {
-      keyToUse = apiKey
-    } else if (freeSession === true && process.env.GROQ_API_KEY) {
-      keyToUse = process.env.GROQ_API_KEY
-    }
-
-    if (!keyToUse) {
+    const apiKey = process.env.GROQ_API_KEY
+    if (!apiKey) {
       return NextResponse.json({ hasError: false, corrections: [] })
     }
 
-    const result = await callGroq(transcript, keyToUse)
+    const res = await fetch(GROQ_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model:           GROQ_MODEL,
+        response_format: { type: 'json_object' },
+        temperature:     0.1,
+        max_tokens:      300,
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user',   content: `Check this spoken English: "${transcript}"` },
+        ],
+      }),
+    })
+
+    if (!res.ok) throw new Error(`Groq ${res.status}`)
+    const data = await res.json()
+    const content = data.choices?.[0]?.message?.content
+    if (!content) throw new Error('Empty Groq response')
+
+    const result = JSON.parse(content)
     return NextResponse.json(result ?? { hasError: false, corrections: [] })
   } catch (error) {
     console.error('[Grammar API]', error)
