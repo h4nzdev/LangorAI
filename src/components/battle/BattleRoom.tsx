@@ -133,13 +133,9 @@ export function BattleRoom({ roomId, errorLimit, learningGoal, onBattleEnd }: Ba
     if (!SR) setSpeechSupported(false);
   }, []);
 
-  // Auto-connect WebRTC once both players are in
-  useEffect(() => {
-    if (opponent?.user_id && currentUserId && room?.status === 'active' && !voiceConnected && !voiceConnecting) {
-      connectVoice();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [opponent?.user_id, currentUserId, room?.status]);
+  // WebRTC is opt-in — user taps the Voice button. Auto-connect is disabled because
+  // calling getUserMedia() simultaneously with the Web Speech API causes mic conflicts
+  // on Android Chrome (iOS Safari handles it fine but Android does not).
 
   // Disconnect WebRTC on battle end
   useEffect(() => {
@@ -269,9 +265,27 @@ export function BattleRoom({ roomId, errorLimit, learningGoal, onBattleEnd }: Ba
     };
 
     rec.onerror = (e: { error: string }) => {
-      if (e.error === 'not-allowed') {
-        toast({ variant: 'destructive', title: 'Microphone blocked', description: 'Allow microphone access to play.' });
-        setBattleEnded(true);
+      switch (e.error) {
+        case 'not-allowed':
+        case 'permission-denied':
+          toast({ variant: 'destructive', title: 'Microphone blocked', description: 'Allow microphone access in your browser settings.' });
+          setBattleEnded(true);
+          break;
+        case 'audio-capture':
+          // Android: mic in use by another app or tab — toast and let onend restart
+          toast({ variant: 'destructive', title: 'Mic unavailable', description: 'Close other apps using the microphone and try again.' });
+          break;
+        case 'network':
+          // Android Chrome sends audio to Google servers; transient network hiccup — restart silently
+          break;
+        case 'service-not-allowed':
+          // Happens on Android when the page is served over HTTP (no HTTPS)
+          toast({ variant: 'destructive', title: 'Speech service blocked', description: 'Open the app over HTTPS for voice recognition to work.' });
+          setBattleEnded(true);
+          break;
+        default:
+          // no-speech, aborted, language-not-supported — all handled by onend
+          break;
       }
     };
 
@@ -395,9 +409,10 @@ export function BattleRoom({ roomId, errorLimit, learningGoal, onBattleEnd }: Ba
   // Watchdog: force-restart if mic is stuck in "Ready"
   useEffect(() => {
     if (!isMyTurn || isListening || isMuted || battleEnded || isSwitchingTurn || room?.status !== 'active') return;
+    // 2 s gives Android time to acquire the mic after turn switch
     const watchdog = setTimeout(() => {
       if (!recognitionRef.current) startRecognitionRef.current();
-    }, 1200);
+    }, 2000);
     return () => clearTimeout(watchdog);
   }, [isMyTurn, isListening, isMuted, battleEnded, isSwitchingTurn, room?.status]);
 
@@ -459,23 +474,25 @@ export function BattleRoom({ roomId, errorLimit, learningGoal, onBattleEnd }: Ba
           <span className="text-white font-mono font-bold text-sm tracking-widest">{formatTime(elapsed)}</span>
         </div>
 
-        {/* WebRTC voice indicator */}
+        {/* WebRTC voice — opt-in so it doesn't conflict with Android Speech API */}
         <button
           onClick={() => voiceConnected ? disconnectVoice() : connectVoice()}
+          disabled={voiceConnecting}
+          title={voiceConnected ? 'Tap to disconnect voice chat' : 'Tap to enable voice chat (optional)'}
           className={cn(
             'flex items-center gap-1.5 rounded-full px-3 py-1.5 border text-[9px] font-black uppercase tracking-widest transition-colors',
             voiceConnected
               ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/30'
               : voiceConnecting
               ? 'bg-yellow-500/20 border-yellow-500/40 text-yellow-300 cursor-wait'
-              : 'bg-white/5 border-white/10 text-white/30 hover:bg-white/10 hover:text-white/50'
+              : 'bg-white/5 border-white/10 text-white/20 hover:text-white/40 hover:border-white/20'
           )}
         >
           {voiceConnected
-            ? <><Phone className="h-3 w-3" /> Voice</>
+            ? <><Phone className="h-3 w-3" /> Voice On</>
             : voiceConnecting
-            ? <><Phone className="h-3 w-3 animate-pulse" /> Connecting…</>
-            : <><PhoneMissed className="h-3 w-3" /> No Voice</>
+            ? <><Phone className="h-3 w-3 animate-pulse" /> …</>
+            : <><Phone className="h-3 w-3" /> Voice</>
           }
         </button>
 
