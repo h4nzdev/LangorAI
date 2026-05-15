@@ -82,6 +82,8 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
   const isMyTurnRef          = useRef(false);
   // Tracks whether the current recognition session already fired isFinal
   const finalizedRef         = useRef(false);
+  // Set to true by stopRecognition so onend doesn't fight against an intentional abort
+  const abortedRef           = useRef(false);
 
   useEffect(() => { isMutedRef.current     = isMuted;    }, [isMuted]);
   useEffect(() => { battleEndedRef.current = battleEnded; }, [battleEnded]);
@@ -137,6 +139,7 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
   // ── Recognition helpers ──────────────────────────────────────────────────────
   const stopRecognition = useCallback(() => {
     if (recognitionRef.current) {
+      abortedRef.current = true; // tell onend this was intentional — don't restart
       recognitionRef.current.abort();
       recognitionRef.current = null;
     }
@@ -150,6 +153,7 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
     if (!SR) return;
 
     finalizedRef.current = false; // Reset for this new utterance
+    abortedRef.current   = false; // Reset abort flag for this new utterance
 
     const rec = new SR();
     rec.lang            = 'en-US';
@@ -180,13 +184,23 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
       recognitionRef.current = null;
       broadcastSpeaking(false);
 
-      // Auto-submit if recognition ended without isFinal (common on mobile/slow STT)
+      // Intentionally stopped (turn switch, mute, manual send) — do nothing
+      if (abortedRef.current) {
+        abortedRef.current = false;
+        return;
+      }
+
       if (!finalizedRef.current && isMyTurnRef.current && !battleEndedRef.current) {
         const pending = myTranscriptRef.current.trim();
-        if (pending) {
+        const wordCount = pending.split(/\s+/).filter(Boolean).length;
+
+        if (wordCount >= MIN_WORDS) {
+          // Enough content — auto-submit (handles mobile where isFinal never fires)
           setMyTranscript('');
-          // Small delay to allow state to flush before processing
           setTimeout(() => handleFinalRef.current(pending), 80);
+        } else {
+          // Paused mid-sentence or no speech yet — restart mic so they can continue
+          setTimeout(() => startRecognitionRef.current(), 400);
         }
       }
     };
@@ -211,7 +225,7 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
     setTimeout(() => {
       broadcastTurnChange(nextId);
       setIsSwitchingTurn(false);
-    }, 700); // Kept short — grammar check no longer blocks this
+    }, 1200); // Long enough to read "Switching…" without feeling rushed
   }, [broadcastTurnChange]);
 
   // ── Grammar check & turn hand-off ────────────────────────────────────────────
@@ -314,6 +328,15 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMyTurn, room?.status, isSwitchingTurn, isMuted]);
 
+  // Watchdog: if it's my turn but the mic is stuck in "Ready" for > 1.2s, force-restart
+  useEffect(() => {
+    if (!isMyTurn || isListening || isMuted || battleEnded || isSwitchingTurn || room?.status !== 'active') return;
+    const watchdog = setTimeout(() => {
+      if (!recognitionRef.current) startRecognitionRef.current();
+    }, 1200);
+    return () => clearTimeout(watchdog);
+  }, [isMyTurn, isListening, isMuted, battleEnded, isSwitchingTurn, room?.status]);
+
   const toggleMute = () => {
     const muting = !isMuted;
     setIsMuted(muting);
@@ -325,10 +348,11 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
     const text = myTranscriptRef.current.trim();
     if (!text || battleEndedRef.current) return;
     if (recognitionRef.current) {
+      abortedRef.current   = true; // prevent onend from restarting
+      finalizedRef.current = true; // prevent onend from auto-submitting
       recognitionRef.current.abort();
       recognitionRef.current = null;
     }
-    finalizedRef.current = true; // prevent onend from double-firing
     setIsListening(false);
     setMyTranscript('');
     broadcastSpeaking(false);
