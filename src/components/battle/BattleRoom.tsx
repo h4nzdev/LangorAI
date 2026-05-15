@@ -492,22 +492,30 @@ export function BattleRoom({ roomId, errorLimit, learningGoal, onBattleEnd }: Ba
         </div>
       </div>
 
-      {/* ── Debate motion banner ────────────────────────────────────────────────── */}
-      <div className="shrink-0 mx-4 mb-1 px-4 py-2.5 bg-white/5 border border-white/10 rounded-2xl">
-        <p className="text-[8px] font-black uppercase tracking-[0.25em] text-white/30 text-center mb-1">⚖️ Debate Motion</p>
-        <p className="text-[11px] text-white/80 font-semibold text-center leading-snug">"{motion}"</p>
-        {myPosition && (
-          <div className="flex justify-center mt-1.5">
-            <span className={cn(
-              'text-[9px] font-black uppercase tracking-widest px-3 py-0.5 rounded-full',
-              myPosition === 'FOR'
-                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                : 'bg-red-500/20 text-red-400 border border-red-500/30'
-            )}>
-              {myPosition === 'FOR' ? '✅ You: FOR' : '❌ You: AGAINST'}
-            </span>
-          </div>
-        )}
+      {/* ── Debate motion banner ─────────────────────────────────────────────────── */}
+      <div className="shrink-0 mx-3 mb-1 rounded-2xl overflow-hidden border border-primary/30 shadow-lg shadow-primary/10">
+        {/* Gradient header bar */}
+        <div className="bg-gradient-to-r from-primary/30 via-violet-500/20 to-primary/30 px-4 py-1.5 flex items-center justify-center gap-2">
+          <span className="text-[8px] font-black uppercase tracking-[0.3em] text-primary/80">⚖️ Today&apos;s Motion</span>
+        </div>
+        {/* Motion text — highlighted */}
+        <div className="bg-white/[0.04] px-5 py-3">
+          <p className="text-sm font-black text-white text-center leading-snug tracking-wide drop-shadow-sm">
+            &ldquo;{motion}&rdquo;
+          </p>
+          {myPosition && (
+            <div className="flex justify-center mt-2">
+              <span className={cn(
+                'text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full border',
+                myPosition === 'FOR'
+                  ? 'bg-emerald-500/25 text-emerald-300 border-emerald-500/40 shadow-sm shadow-emerald-500/20'
+                  : 'bg-red-500/25 text-red-300 border-red-500/40 shadow-sm shadow-red-500/20'
+              )}>
+                {myPosition === 'FOR' ? '✅ Your side: FOR' : '❌ Your side: AGAINST'}
+              </span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── Turn banner ─────────────────────────────────────────────────────────── */}

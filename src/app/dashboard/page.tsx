@@ -507,23 +507,31 @@ export default function Dashboard() {
                 {recommendations.length > 0 ? recommendations.map((item) => {
                   const img = PlaceHolderImages.find(p => p.id === item.imageId);
                   return (
-                    <Link key={item.id} href="/practice" className="block h-full">
+                    <Link key={item.id} href={`/courses/${item.id}`} className="block h-full">
                       <Card className="bg-card border-none overflow-hidden hover:ring-2 ring-primary/50 transition-all cursor-pointer shadow-lg group h-full">
                         <div className="relative aspect-video w-full overflow-hidden">
-                          {img && (
+                          {img ? (
                             <Image
                               src={img.imageUrl}
                               alt={item.title}
                               fill
                               className="object-cover group-hover:scale-105 transition-transform duration-300"
                             />
+                          ) : (
+                            <div className="absolute inset-0 bg-gradient-to-br from-primary/30 to-primary/10" />
                           )}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-60" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                          {/* Duration badge over image */}
+                          <div className="absolute top-2 right-2 bg-black/50 backdrop-blur-sm text-white text-[8px] font-black px-2 py-0.5 rounded-full">
+                            {item.meta.split('•')[0].trim()}
+                          </div>
                         </div>
-                        <CardContent className="p-3 space-y-1">
-                          <h3 className="font-bold text-sm leading-tight text-foreground">{item.title}</h3>
-                          <p className="text-[10px] text-muted-foreground">{item.meta}</p>
-                          <Badge variant="outline" className="text-[8px] h-4 py-0 border-border text-muted-foreground">{item.level}</Badge>
+                        <CardContent className="p-3 space-y-1.5">
+                          <h3 className="font-bold text-sm leading-tight text-foreground line-clamp-2">{item.title}</h3>
+                          <div className="flex items-center justify-between gap-1">
+                            <Badge variant="outline" className="text-[8px] h-4 py-0 border-border text-muted-foreground">{item.level}</Badge>
+                            <span className="text-[9px] font-black text-primary">{item.meta.split('•')[1]?.trim()}</span>
+                          </div>
                         </CardContent>
                       </Card>
                     </Link>

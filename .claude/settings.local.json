@@ -8,7 +8,14 @@
       "Bash(Select-Object FullName)",
       "Bash(grep -i \"\\\\.\\(ts|tsx\\)$\")",
       "Bash(Select-String \"env\")",
-      "Bash(dir \"C:\\\\Users\\\\hanzc\\\\Documents\\\\LangorAI\" /b)"
+      "Bash(dir \"C:\\\\Users\\\\hanzc\\\\Documents\\\\LangorAI\" /b)",
+      "Bash(npm list *)",
+      "Bash(mkdir -p \"/mnt/c/Users/hanzc/Documents/LangorAI/public/icons\")",
+      "Bash(cp \"/mnt/c/Users/hanzc/Documents/LangorAI/src/assets/logo.png\" \"/mnt/c/Users/hanzc/Documents/LangorAI/public/icons/icon-512x512.png\")",
+      "Bash(cp \"/mnt/c/Users/hanzc/Documents/LangorAI/src/assets/logo.png\" \"/mnt/c/Users/hanzc/Documents/LangorAI/public/icons/icon-192x192.png\")",
+      "Bash(cp \"/mnt/c/Users/hanzc/Documents/LangorAI/src/assets/logo.png\" \"/mnt/c/Users/hanzc/Documents/LangorAI/public/icons/apple-touch-icon.png\")",
+      "Bash(cp \"/mnt/c/Users/hanzc/Documents/LangorAI/src/assets/logo.png\" \"/mnt/c/Users/hanzc/Documents/LangorAI/public/icons/icon-144x144.png\")",
+      "Bash(powershell *)"
     ]
   }
 }

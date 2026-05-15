@@ -4,8 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
-import { Trophy, Target, Zap, Flame, TrendingUp, Swords, CheckCircle, XCircle, MinusCircle } from 'lucide-react';
+import { Trophy, Target, Zap, Flame, TrendingUp, Swords, CheckCircle, XCircle, MinusCircle, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import type { Badge as EarnedBadge } from '@/lib/badges';
+import { TIER_COLORS } from '@/lib/badges';
 
 interface BattleMode {
   value: 'easy' | 'standard' | 'hard';
@@ -66,9 +68,10 @@ interface BattleMenuProps {
   stats?: BattleStats;
   battleHistory?: BattleHistoryItem[];
   recommendedMode?: 'easy' | 'standard' | 'hard';
+  badges?: EarnedBadge[];
 }
 
-export function BattleMenu({ onStart, stats, battleHistory, recommendedMode }: BattleMenuProps) {
+export function BattleMenu({ onStart, stats, battleHistory, recommendedMode, badges }: BattleMenuProps) {
   const [selectedMode, setSelectedMode] = useState<string>(recommendedMode ?? 'standard');
 
   const handleStart = () => {
@@ -172,6 +175,30 @@ export function BattleMenu({ onStart, stats, battleHistory, recommendedMode }: B
           Find Opponent
         </Button>
 
+        {/* ── Badges ───────────────────────────────────────────────────────── */}
+        {badges && badges.length > 0 && (
+          <Card className="bg-card border-none shadow-xl">
+            <CardContent className="p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Trophy className="h-4 w-4 text-primary" />
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
+                    Battle Badges
+                  </p>
+                </div>
+                <span className="text-[9px] font-bold text-muted-foreground">
+                  {badges.filter(b => b.unlocked).length} / {badges.length} earned
+                </span>
+              </div>
+              <div className="grid grid-cols-4 gap-2">
+                {badges.map(badge => (
+                  <BadgeCard key={badge.id} badge={badge} />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* ── Battle History ───────────────────────────────────────────────── */}
         {battleHistory && battleHistory.length > 0 && (
           <Card className="bg-card border-none shadow-xl">
@@ -244,6 +271,52 @@ function HistoryRow({ battle }: { battle: BattleHistoryItem }) {
           {battle.errorCount} err · {battle.accuracy}%
         </Badge>
       </div>
+    </div>
+  );
+}
+
+function BadgeCard({ badge }: { badge: EarnedBadge }) {
+  return (
+    <div
+      className={cn(
+        'relative flex flex-col items-center gap-1.5 p-2.5 rounded-2xl border transition-all duration-300',
+        badge.unlocked
+          ? 'bg-card border-border shadow-md'
+          : 'bg-muted/30 border-border/30 opacity-40 grayscale'
+      )}
+      title={badge.description}
+    >
+      {/* Tier gradient ring for unlocked badges */}
+      {badge.unlocked && (
+        <div className={cn(
+          'absolute inset-0 rounded-2xl opacity-20 bg-gradient-to-br pointer-events-none',
+          TIER_COLORS[badge.tier]
+        )} />
+      )}
+
+      {/* Emoji */}
+      <div className={cn(
+        'w-9 h-9 rounded-xl flex items-center justify-center text-xl relative z-10',
+        badge.unlocked ? 'bg-gradient-to-br ' + TIER_COLORS[badge.tier] + ' shadow-sm' : 'bg-muted'
+      )}>
+        {badge.unlocked ? badge.emoji : <Lock className="h-3.5 w-3.5 text-muted-foreground" />}
+      </div>
+
+      {/* Name */}
+      <p className={cn(
+        'text-[8px] font-black uppercase tracking-widest text-center leading-tight relative z-10',
+        badge.unlocked ? 'text-foreground' : 'text-muted-foreground'
+      )}>
+        {badge.name}
+      </p>
+
+      {/* Tier dot */}
+      {badge.unlocked && (
+        <div className={cn(
+          'absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-gradient-to-br',
+          TIER_COLORS[badge.tier]
+        )} />
+      )}
     </div>
   );
 }

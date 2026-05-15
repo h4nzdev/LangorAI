@@ -2501,8 +2501,7 @@ const RULES: Rule[] = [
     test: /\bI\s+am\s+(agree|disagree)\b/i,
     apply: (t) =>
       t.replace(/\bI\s+am\s+(agree|disagree)\b/gi, (_, v) => `I ${v}`),
-    reason:
-      'Say "I agree" / "I disagree", not "I am agree" / "I am disagree".',
+    reason: 'Say "I agree" / "I disagree", not "I am agree" / "I am disagree".',
   },
 ];
 

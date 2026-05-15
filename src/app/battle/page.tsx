@@ -8,6 +8,8 @@ import { AlertTriangle, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { recommendedBattleMode } from '@/lib/recommendations';
+import { computeBadges } from '@/lib/badges';
+import type { Badge } from '@/lib/badges';
 
 type BattleStatus = 'menu' | 'matchmaking' | 'battle' | 'result';
 
@@ -44,6 +46,7 @@ export default function BattlePage() {
     streak: 0,
   });
   const [battleHistory, setBattleHistory] = useState<BattleHistoryItem[]>([]);
+  const [badges, setBadges]               = useState<Badge[]>([]);
   const [learningGoal, setLearningGoal] = useState<string>('');
   const [proficiencyLevel, setProficiencyLevel] = useState<string>('Intermediate');
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -63,17 +66,21 @@ export default function BattlePage() {
       .eq('id', user.id)
       .single();
 
+    // Hoist win/loss/draw/points/streak so badge computation can access them regardless of history
+    const wins    = profile?.wins    ?? 0;
+    const losses  = profile?.losses  ?? 0;
+    const draws   = profile?.draws   ?? 0;
+    const streak  = profile?.streak  ?? 0;
+    const points  = profile?.points  ?? 0;
+
     if (profile) {
-      const wins = profile.wins ?? 0;
-      const losses = profile.losses ?? 0;
-      const draws = profile.draws ?? 0;
       setUserStats({
-        totalPoints: profile.points ?? 0,
-        totalWins: wins,
+        totalPoints: points,
+        totalWins:   wins,
         totalLosses: losses,
-        totalDraws: draws,
+        totalDraws:  draws,
         totalBattles: wins + losses + draws,
-        streak: profile.streak ?? 0,
+        streak,
       });
       if (profile.learning_goal)    setLearningGoal(profile.learning_goal);
       if (profile.proficiency_level) setProficiencyLevel(profile.proficiency_level);
@@ -87,6 +94,8 @@ export default function BattlePage() {
       .order('room_id', { ascending: false })
       .limit(10);
 
+    let history: BattleHistoryItem[] = [];
+
     if (participantRows && participantRows.length > 0) {
       const roomIds = participantRows.map(r => r.room_id as string);
       const { data: rooms } = await supabase
@@ -96,7 +105,6 @@ export default function BattlePage() {
         .eq('status', 'completed')
         .order('created_at', { ascending: false });
 
-      const history: BattleHistoryItem[] = [];
       for (const room of rooms ?? []) {
         const myRow = participantRows.find(r => r.room_id === room.id);
         if (!myRow) continue;
@@ -127,6 +135,15 @@ export default function BattlePage() {
       }
       setBattleHistory(history);
     }
+
+    // Compute badges — always runs whether history is empty or not
+    setBadges(computeBadges({
+      totalBattles: wins + losses + draws,
+      totalWins:    wins,
+      streak,
+      totalPoints:  points,
+      battleHistory: history,
+    }));
   }, []);
 
   useEffect(() => {
@@ -271,6 +288,7 @@ export default function BattlePage() {
             }}
             battleHistory={battleHistory}
             recommendedMode={recommendedBattleMode(proficiencyLevel).mode}
+            badges={badges}
           />
         )}
 
