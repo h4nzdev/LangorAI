@@ -2,11 +2,11 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Mic, MicOff, Sparkles, Zap, AlertCircle, CheckCircle2, Lock, SendHorizonal } from 'lucide-react';
+import { Mic, MicOff, Sparkles, Zap, AlertCircle, CheckCircle2, Lock, SendHorizonal, WifiOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useBattleRealtime } from '@/hooks/use-battle-realtime';
 import { useToast } from '@/hooks/use-toast';
-import { checkGrammar } from '@/lib/grammar-checker';
+import { checkGrammar, preprocessVoiceText } from '@/lib/grammar-checker';
 
 // ── Debate motions ────────────────────────────────────────────────────────────
 const DEBATE_MOTIONS = [
@@ -52,7 +52,7 @@ interface ErrorOverlay {
 export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps) {
   const {
     room, player, opponent, currentUserId, currentSpeakerId,
-    opponentIsSpeaking, opponentTranscript,
+    opponentIsSpeaking, opponentTranscript, connectionStatus,
     reportError, broadcastSpeaking, broadcastTranscript, broadcastTurnChange,
   } = useBattleRealtime(roomId);
   const { toast } = useToast();
@@ -74,15 +74,18 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
   const isMutedRef           = useRef(false);
   const battleEndedRef       = useRef(false);
   const startTimeRef         = useRef(Date.now());
-  // Always-current refs so recognition callbacks never hold stale closures
+  // Always-current refs so callbacks never hold stale closures
   const opponentRef          = useRef(opponent);
   const handleFinalRef       = useRef<(text: string) => void>(() => {});
   const startRecognitionRef  = useRef<() => void>(() => {});
   const myTranscriptRef      = useRef('');
+  const isMyTurnRef          = useRef(false);
+  // Tracks whether the current recognition session already fired isFinal
+  const finalizedRef         = useRef(false);
 
-  useEffect(() => { isMutedRef.current    = isMuted;       }, [isMuted]);
-  useEffect(() => { battleEndedRef.current = battleEnded;  }, [battleEnded]);
-  useEffect(() => { opponentRef.current    = opponent;     }, [opponent]);
+  useEffect(() => { isMutedRef.current     = isMuted;    }, [isMuted]);
+  useEffect(() => { battleEndedRef.current = battleEnded; }, [battleEnded]);
+  useEffect(() => { opponentRef.current    = opponent;    }, [opponent]);
   useEffect(() => { myTranscriptRef.current = myTranscript; }, [myTranscript]);
 
   // Debate position: lex-smaller user_id → FOR, larger → AGAINST
@@ -107,6 +110,8 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
   // Derived turn state
   const isMyTurn       = currentSpeakerId === currentUserId;
   const isOpponentTurn = currentSpeakerId !== null && currentSpeakerId !== currentUserId;
+
+  useEffect(() => { isMyTurnRef.current = isMyTurn; }, [isMyTurn]);
 
   // ── Battle end ───────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -144,9 +149,11 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition; // eslint-disable-line @typescript-eslint/no-explicit-any
     if (!SR) return;
 
+    finalizedRef.current = false; // Reset for this new utterance
+
     const rec = new SR();
     rec.lang            = 'en-US';
-    rec.continuous      = false; // single utterance per turn
+    rec.continuous      = false;
     rec.interimResults  = true;
     rec.maxAlternatives = 1;
 
@@ -162,6 +169,7 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
       broadcastTranscript(text);
 
       if (result.isFinal) {
+        finalizedRef.current = true;
         setMyTranscript('');
         handleFinalRef.current(text);
       }
@@ -171,6 +179,16 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
       setIsListening(false);
       recognitionRef.current = null;
       broadcastSpeaking(false);
+
+      // Auto-submit if recognition ended without isFinal (common on mobile/slow STT)
+      if (!finalizedRef.current && isMyTurnRef.current && !battleEndedRef.current) {
+        const pending = myTranscriptRef.current.trim();
+        if (pending) {
+          setMyTranscript('');
+          // Small delay to allow state to flush before processing
+          setTimeout(() => handleFinalRef.current(pending), 80);
+        }
+      }
     };
 
     rec.onerror = (e: { error: string }) => {
@@ -178,6 +196,7 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
         toast({ variant: 'destructive', title: 'Microphone blocked', description: 'Allow microphone access to play.' });
         setBattleEnded(true);
       }
+      // 'no-speech' and other errors let onend handle cleanup
     };
 
     recognitionRef.current = rec;
@@ -185,7 +204,6 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
   }, [broadcastSpeaking, broadcastTranscript]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Switch turn ──────────────────────────────────────────────────────────────
-  // Uses opponentRef so it never captures a stale opponent from the initial render
   const switchTurn = useCallback(() => {
     if (!opponentRef.current || battleEndedRef.current) return;
     const nextId = opponentRef.current.user_id;
@@ -193,72 +211,89 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
     setTimeout(() => {
       broadcastTurnChange(nextId);
       setIsSwitchingTurn(false);
-    }, 1500);
+    }, 700); // Kept short — grammar check no longer blocks this
   }, [broadcastTurnChange]);
 
   // ── Grammar check & turn hand-off ────────────────────────────────────────────
+  // IMPORTANT: turn switches FIRST, grammar check runs in background after.
+  // This is the core fix for the "stuck turn" / lag bug — the API call must
+  // never block the turn transition.
   const handleFinalUtterance = useCallback(async (text: string) => {
     if (!text.trim() || battleEndedRef.current) return;
 
-    // Enforce minimum word count — prevent single-word cheating
     const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
     if (wordCount < MIN_WORDS) {
       setTooShortWarning(true);
       setTimeout(() => {
         setTooShortWarning(false);
-        startRecognitionRef.current(); // restart mic, same player keeps their turn
+        startRecognitionRef.current();
       }, 1800);
       return;
     }
 
-    const local = checkGrammar(text);
+    // Fix STT artefacts (lowercase "i", capitalise first word) before checking
+    const processed = preprocessVoiceText(text);
+
+    // ✅ Switch turn immediately — do NOT wait for grammar check
+    switchTurn();
+
+    // Local synchronous check (zero latency)
+    const local = checkGrammar(processed);
 
     if (local.hasError && local.correctedText) {
-      setErrorOverlay({ originalText: local.originalText, correctedText: local.correctedText, explanation: local.explanation ?? '', enhanced: false });
-      await reportError();
+      setErrorOverlay({
+        originalText: local.originalText,
+        correctedText: local.correctedText,
+        explanation: local.explanation ?? '',
+        enhanced: false,
+      });
+      // Fire-and-forget — DB update happens in background, doesn't block anything
+      void reportError();
+      setTimeout(() => setErrorOverlay(null), 4000);
 
+      // Optional AI enhancement (fully non-blocking, decorative only)
       const apiKey = localStorage.getItem('GEMINI_API_KEY') || undefined;
       if (apiKey) {
         fetch('/api/battle/grammar', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ transcript: text, apiKey }),
+          body: JSON.stringify({ transcript: processed, apiKey }),
         })
           .then(r => r.ok ? r.json() : null)
           .then((d: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
             if (d?.hasError && d.corrections?.[0]) {
-              setErrorOverlay(prev => prev ? { ...prev, correctedText: d.corrections[0].correct || prev.correctedText, explanation: d.corrections[0].explanation || prev.explanation, enhanced: true } : null);
+              setErrorOverlay(prev => prev ? {
+                ...prev,
+                correctedText: d.corrections[0].correct || prev.correctedText,
+                explanation: d.corrections[0].explanation || prev.explanation,
+                enhanced: true,
+              } : null);
             }
-          }).catch(() => null);
+          })
+          .catch(() => null);
       }
-      setTimeout(() => setErrorOverlay(null), 4000);
-      switchTurn();
       return;
     }
 
-    // No local error — optionally check with Gemini
+    // No local error — show correct flash, optionally run AI check
+    setCorrectFlash(true);
+    setTimeout(() => setCorrectFlash(false), 900);
+
     const apiKey = localStorage.getItem('GEMINI_API_KEY') || undefined;
     if (apiKey) {
       fetch('/api/battle/grammar', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcript: text, apiKey }),
+        body: JSON.stringify({ transcript: processed, apiKey }),
       })
         .then(r => r.ok ? r.json() : null)
         .then(async (d: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
           if (d?.hasError && d.corrections?.[0]) {
             const c = d.corrections[0];
             setErrorOverlay({ originalText: c.incorrect, correctedText: c.correct, explanation: c.explanation, enhanced: true });
-            await reportError();
+            void reportError();
             setTimeout(() => setErrorOverlay(null), 4000);
-          } else {
-            setCorrectFlash(true);
-            setTimeout(() => setCorrectFlash(false), 900);
           }
-          switchTurn();
-        }).catch(() => { setCorrectFlash(true); setTimeout(() => setCorrectFlash(false), 900); switchTurn(); });
-    } else {
-      setCorrectFlash(true);
-      setTimeout(() => setCorrectFlash(false), 900);
-      switchTurn();
+        })
+        .catch(() => null);
     }
   }, [reportError, switchTurn]);
 
@@ -289,11 +324,11 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
   const handleManualSend = useCallback(() => {
     const text = myTranscriptRef.current.trim();
     if (!text || battleEndedRef.current) return;
-    // Stop recognition so it doesn't also fire onresult after this
     if (recognitionRef.current) {
       recognitionRef.current.abort();
       recognitionRef.current = null;
     }
+    finalizedRef.current = true; // prevent onend from double-firing
     setIsListening(false);
     setMyTranscript('');
     broadcastSpeaking(false);
@@ -309,6 +344,14 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
 
   return (
     <div className="fixed inset-0 bg-[#080810] flex flex-col overflow-hidden select-none">
+
+      {/* ── Connection lost banner ───────────────────────────────────────────── */}
+      {connectionStatus === 'disconnected' && (
+        <div className="absolute top-0 inset-x-0 z-50 flex items-center justify-center gap-2 bg-destructive text-white text-xs font-bold py-1.5 px-4">
+          <WifiOff className="h-3.5 w-3.5" />
+          Connection lost — reconnecting…
+        </div>
+      )}
 
       {/* ── Top bar ────────────────────────────────────────────────────────────── */}
       <div className="shrink-0 flex items-center justify-between px-5 pt-4 pb-2 z-20">
@@ -426,8 +469,11 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
               <span className="text-sm font-bold text-emerald-400">Correct!</span>
             </div>
           ) : isMyTurn && myTranscript ? (
-            <div className="px-4 py-2 bg-primary/10 border border-primary/20 rounded-2xl">
+            <div className="px-4 py-2 bg-primary/10 border border-primary/20 rounded-2xl w-full">
               <p className="text-sm text-white/80 italic text-center leading-relaxed">"{myTranscript}"</p>
+              <p className="text-[9px] text-white/30 text-center mt-1">
+                {myTranscript.trim().split(/\s+/).filter(Boolean).length} / {MIN_WORDS} words min
+              </p>
             </div>
           ) : null}
         </div>
@@ -498,7 +544,7 @@ export function BattleRoom({ roomId, errorLimit, onBattleEnd }: BattleRoomProps)
               </span>
             </div>
 
-            {/* Send button — visible when listening and there is a transcript to send */}
+            {/* Send button — manually submit the current transcript */}
             <button
               onClick={handleManualSend}
               disabled={!isMyTurn || !myTranscript}

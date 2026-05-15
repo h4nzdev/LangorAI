@@ -24,6 +24,8 @@ interface BroadcastSpeakPayload      { user_id: string; isSpeaking: boolean }
 interface BroadcastTranscriptPayload { user_id: string; text: string }
 interface BroadcastTurnPayload       { next_speaker_id: string }
 
+export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected'
+
 export function useBattleRealtime(roomId: string | null) {
   const [participants, setParticipants]         = useState<BattleParticipant[]>([])
   const [room, setRoom]                         = useState<BattleRoomState | null>(null)
@@ -31,6 +33,7 @@ export function useBattleRealtime(roomId: string | null) {
   const [opponentIsSpeaking, setOpponentIsSpeaking] = useState(false)
   const [opponentTranscript, setOpponentTranscript] = useState('')
   const [currentSpeakerId, setCurrentSpeakerId]  = useState<string | null>(null)
+  const [connectionStatus, setConnectionStatus]  = useState<ConnectionStatus>('connecting')
 
   const channelRef = useRef<RealtimeChannel | null>(null)
   const userIdRef  = useRef<string | null>(null)
@@ -102,7 +105,12 @@ export function useBattleRealtime(roomId: string | null) {
           setOpponentTranscript('')
         }
       })
-      .subscribe()
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') setConnectionStatus('connected')
+        else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          setConnectionStatus('disconnected')
+        }
+      })
 
     return () => {
       if (channelRef.current) {
@@ -147,7 +155,7 @@ export function useBattleRealtime(roomId: string | null) {
 
   return {
     room, player, opponent, currentUserId, currentSpeakerId,
-    opponentIsSpeaking, opponentTranscript,
+    opponentIsSpeaking, opponentTranscript, connectionStatus,
     reportError, broadcastSpeaking, broadcastTranscript, broadcastTurnChange,
   }
 }
